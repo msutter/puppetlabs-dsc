@@ -1,0 +1,13 @@
+---
+# Microsoft PowerShell DSC Resource Kit repository
+repository: 'https://github.com/PowerShell/DscResources.git'
+
+# blacklisted DSC modules
+blacklist:
+  - xChrome
+  - xDSCResourceDesigner
+  - xDscDiagnostics
+  - xFirefox
+  - xSafeHarbor
+  - xSystemSecurity
+

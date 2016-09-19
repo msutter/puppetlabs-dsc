@@ -2,10 +2,15 @@ require 'yaml'
 
 namespace :dsc do
 
+
   # local pathes
   dsc_build_path             = Pathname.new(__FILE__).dirname
   dsc_repo_url               = %x(git config --get remote.origin.url).strip
   dsc_repo_branch            = %x(git rev-parse --abbrev-ref HEAD).strip
+
+  # config
+  config = YAML::load(File.open("#{dsc_build_path}/dsc.yml"))
+
   # defaults
   default_dsc_module_path    = dsc_build_path.parent
   default_dsc_resources_path = "#{default_dsc_module_path}/import/dsc_resources"
@@ -15,8 +20,8 @@ namespace :dsc do
   default_types_path         = "#{default_dsc_module_path}/lib/puppet/type"
   default_type_specs_path    = "#{default_dsc_module_path}/spec/unit/puppet/type"
 
-  dsc_repo                   = 'https://github.com/PowerShell/DscResources.git'
   dsc_resources_file         = "#{default_dsc_module_path}/dsc_resource_release_tags.yml"
+  dsc_repo                   = config['repository']
 
   desc "Import and build all"
   task :build, [:dsc_module_path] do |t, args|
@@ -72,8 +77,7 @@ eod
         FileUtils.cp_r "#{dsc_resources_path}/.", "#{dsc_resources_path_tmp}/"
       end
 
-      blacklist = ['xChrome', 'xDSCResourceDesigner', 'xDscDiagnostics',
-                   'xFirefox', 'xSafeHarbor', 'xSystemSecurity'] # Case sensitive
+      blacklist = config['blacklist']
       puts "Cleaning out black-listed DSC resources: #{blacklist}"
       blacklist.each { |res| FileUtils.rm_rf("#{dsc_resources_path_tmp}/xDscResources/#{res}") }
 
