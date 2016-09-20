@@ -46,3 +46,6 @@ xWindowsRestore: 1.0.0-PSGallery
 xWindowsUpdate: 2.5.0.0-PSGallery
 xWinEventLog: 1.1.0.0-PSGallery
 xWordPress: 1.1.0.0-PSGallery
+OfficeOnlineServerDsc: 0.1.0.0-PSGallery
+SharePointDsc: 1.1.0.0-PSGallery
+SystemLocaleDsc: 1.0.0.0-PSGallery

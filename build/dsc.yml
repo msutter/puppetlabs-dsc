@@ -1,6 +1,11 @@
 ---
-# Microsoft PowerShell DSC Resource Kit repository
-repository: 'https://github.com/PowerShell/DscResources.git'
+# central repository for PowerShell Desired State Configuration (DSC) resources
+central_repository:
+  url: 'https://github.com/msutter/DscResources.git'
+  branch: 'build_test'
+  dsc_folders:
+    - 'dscresources'
+    - 'xDscResources'
 
 # blacklisted DSC modules
 blacklist:
@@ -10,4 +15,3 @@ blacklist:
   - xFirefox
   - xSafeHarbor
   - xSystemSecurity
-

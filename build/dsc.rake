@@ -9,19 +9,42 @@ namespace :dsc do
   dsc_repo_branch            = %x(git rev-parse --abbrev-ref HEAD).strip
 
   # config
-  config = YAML::load(File.open("#{dsc_build_path}/dsc.yml"))
+  config_file = "#{dsc_build_path}/dsc.yml"
+  if File.exists?(config_file)
+    config = YAML::load(File.open("#{dsc_build_path}/dsc.yml"))
+    puts "Using values from config file #{config_file} not found"
+  else
+    puts "Config file #{config_file} not found"
+    puts "Using default values"
+    config = {}
+  end
 
   # defaults
   default_dsc_module_path    = dsc_build_path.parent
   default_dsc_resources_path = "#{default_dsc_module_path}/import/dsc_resources"
   vendor_dsc_resources_path  = "#{default_dsc_module_path}/lib/puppet_x/dsc_resources"
 
-  default_repofile           = "#{default_dsc_module_path}/Repofile"
   default_types_path         = "#{default_dsc_module_path}/lib/puppet/type"
   default_type_specs_path    = "#{default_dsc_module_path}/spec/unit/puppet/type"
 
   dsc_resources_file         = "#{default_dsc_module_path}/dsc_resource_release_tags.yml"
-  dsc_repo                   = config['repository']
+
+  dsc_central_repo_url              = 'https://github.com/PowerShell/DscResources.git'
+  dsc_central_repo_branch           = 'master'
+  dsc_central_repo_resource_folders = ['xDscResources', 'dscresources']
+  blacklist                         = ["xChrome", "xDSCResourceDesigner", "xDscDiagnostics", "xFirefox", "xSafeHarbor", "xSystemSecurity"]
+
+  # overwrite defaults with config file values if they exists
+  if config.has_key?('central_repository')
+    dsc_central_repo_url              = config['central_repository']['url'] if config['central_repository'].has_key?('url')
+    dsc_central_repo_branch           = config['central_repository']['branch'] if config['central_repository'].has_key?('branch')
+    dsc_central_repo_resource_folders = config['central_repository']['dsc_folders'] if config['central_repository'].has_key?('dsc_folders')
+  end
+
+  if config.has_key?('blacklist')
+    blacklist = config['blacklist']
+  end
+
 
   desc "Import and build all"
   task :build, [:dsc_module_path] do |t, args|
@@ -61,11 +84,11 @@ eod
       dsc_resources_path_tmp = "#{dsc_resources_path}_tmp"
       update_versions = args[:update_versions] || false
       is_custom_resource = (dsc_resources_path != default_dsc_resources_path)
-
+      branch = dsc_central_repo_branch
       if !is_custom_resource
         puts "Downloading and Importing #{item_name}"
         cmd = ''
-        cmd = "git clone #{dsc_repo} #{dsc_resources_path_tmp} && " unless Dir.exist? dsc_resources_path_tmp
+        cmd = "git clone -b #{branch} #{dsc_central_repo_url} #{dsc_resources_path_tmp} && " unless Dir.exist? dsc_resources_path_tmp
         cmd += "cd #{dsc_resources_path_tmp}"
         cmd += " && git checkout #{ENV['DSC_REF']}" if ENV['DSC_REF']
         cmd += " && git submodule update --init"
@@ -77,15 +100,19 @@ eod
         FileUtils.cp_r "#{dsc_resources_path}/.", "#{dsc_resources_path_tmp}/"
       end
 
-      blacklist = config['blacklist']
       puts "Cleaning out black-listed DSC resources: #{blacklist}"
-      blacklist.each { |res| FileUtils.rm_rf("#{dsc_resources_path_tmp}/xDscResources/#{res}") }
+      blacklist.each do |res|
+        dsc_central_repo_resource_folders.each do |dsc_resource_folder|
+          FileUtils.rm_rf("#{dsc_resources_path_tmp}/#{dsc_resource_folder}/#{res}")
+        end
+      end
 
       resource_tags = {}
       resource_tags = YAML::load_file("#{dsc_resources_file}") if File.exist? dsc_resources_file
 
       puts "Getting latest release tags for DSC resources..."
-      Dir["#{dsc_resources_path_tmp}/xDscResources/*"].each do |dsc_resource_path|
+
+      Dir["#{dsc_resources_path_tmp}/{xDscResources,dscresources}/*"].each do |dsc_resource_path|
         dsc_resource_name = Pathname.new(dsc_resource_path).basename
         FileUtils.cd(dsc_resource_path) do
           # --date-order probably doesn't matter
@@ -138,10 +165,20 @@ eod
       FileUtils.rm_rf(Dir["#{dsc_resources_path_tmp}/**/.{gitattributes,gitignore,gitmodules}"])
       FileUtils.rm_rf(Dir["#{dsc_resources_path_tmp}/**/*.{pptx,docx,sln,cmd,xml,pssproj,pfx,html,txt,xlsm,csv,png,git,yml,md}"])
 
-      vendor_subdir = is_custom_resource ? '' : '/xDscResources' # Case sensitive
-      puts "Copying vendored resources from #{dsc_resources_path_tmp}#{vendor_subdir} to #{vendor_dsc_resources_path}"
-      FileUtils.cp_r "#{dsc_resources_path_tmp}#{vendor_subdir}/.", vendor_dsc_resources_path, :remove_destination => true
-      FileUtils.cp_r "#{dsc_resources_path_tmp}#{vendor_subdir}/.", dsc_resources_path
+      # make sure dsc_resources folder exists in puppetx
+      FileUtils.mkdir_p(vendor_dsc_resources_path) unless File.directory?(vendor_dsc_resources_path)
+
+      # make sure dsc_resources folder exists in import
+      FileUtils.mkdir_p(dsc_resources_path) unless File.directory?(dsc_resources_path)
+
+      dsc_central_repo_resource_folders.each do |vendor_subdir|
+        vendor_subdir = is_custom_resource ? '' : '/xDscResources' # Case sensitive
+        puts "Copying vendored resources from #{dsc_resources_path_tmp}#{vendor_subdir} to #{vendor_dsc_resources_path}"
+        FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{xDscResources,dscresources}/."], vendor_dsc_resources_path, :remove_destination => true
+        FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{xDscResources,dscresources}/."], dsc_resources_path, :remove_destination => true
+        # FileUtils.cp_r "#{dsc_resources_path_tmp}#{vendor_subdir}/.", vendor_dsc_resources_path, :remove_destination => true
+        # FileUtils.cp_r "#{dsc_resources_path_tmp}#{vendor_subdir}/.", dsc_resources_path
+      end
 
       if !is_custom_resource
         puts "Copying vendored resources from #{default_dsc_module_path}/build/vendor/wmf_dsc_resources to #{dsc_resources_path}"
@@ -205,6 +242,7 @@ eod
       msgs.each{|m| puts "#{m}"}
       msgs = m.clean_dsc_type_specs
       msgs.each{|m| puts "#{m}"}
+      FileUtils.rm_rf "#{default_dsc_module_path}/types.md"
     end
 
   end
