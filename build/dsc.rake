@@ -12,7 +12,7 @@ namespace :dsc do
   config_file = "#{dsc_build_path}/dsc.yml"
   if File.exists?(config_file)
     config = YAML::load(File.open("#{dsc_build_path}/dsc.yml"))
-    puts "Using values from config file #{config_file} not found"
+    puts "Using values from config file #{config_file}"
   else
     puts "Config file #{config_file} not found"
     puts "Using default values"
@@ -85,6 +85,8 @@ eod
       update_versions = args[:update_versions] || false
       is_custom_resource = (dsc_resources_path != default_dsc_resources_path)
       branch = dsc_central_repo_branch
+      folder_exp = dsc_central_repo_resource_folders.join(',')
+
       if !is_custom_resource
         puts "Downloading and Importing #{item_name}"
         cmd = ''
@@ -112,7 +114,7 @@ eod
 
       puts "Getting latest release tags for DSC resources..."
 
-      Dir["#{dsc_resources_path_tmp}/{xDscResources,dscresources}/*"].each do |dsc_resource_path|
+      Dir["#{dsc_resources_path_tmp}/{folder_exp}/*"].each do |dsc_resource_path|
         dsc_resource_name = Pathname.new(dsc_resource_path).basename
         FileUtils.cd(dsc_resource_path) do
           # --date-order probably doesn't matter
@@ -171,14 +173,9 @@ eod
       # make sure dsc_resources folder exists in import
       FileUtils.mkdir_p(dsc_resources_path) unless File.directory?(dsc_resources_path)
 
-      dsc_central_repo_resource_folders.each do |vendor_subdir|
-        vendor_subdir = is_custom_resource ? '' : '/xDscResources' # Case sensitive
-        puts "Copying vendored resources from #{dsc_resources_path_tmp}#{vendor_subdir} to #{vendor_dsc_resources_path}"
-        FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{xDscResources,dscresources}/."], vendor_dsc_resources_path, :remove_destination => true
-        FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{xDscResources,dscresources}/."], dsc_resources_path, :remove_destination => true
-        # FileUtils.cp_r "#{dsc_resources_path_tmp}#{vendor_subdir}/.", vendor_dsc_resources_path, :remove_destination => true
-        # FileUtils.cp_r "#{dsc_resources_path_tmp}#{vendor_subdir}/.", dsc_resources_path
-      end
+      puts "Copying vendored resources from #{dsc_resources_path_tmp}#{vendor_subdir} to #{vendor_dsc_resources_path}"
+      FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{#{folder_exp}}/."], vendor_dsc_resources_path, :remove_destination => true
+      FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{#{folder_exp}}/."], dsc_resources_path, :remove_destination => true
 
       if !is_custom_resource
         puts "Copying vendored resources from #{default_dsc_module_path}/build/vendor/wmf_dsc_resources to #{dsc_resources_path}"
