@@ -173,7 +173,7 @@ eod
       # make sure dsc_resources folder exists in import
       FileUtils.mkdir_p(dsc_resources_path) unless File.directory?(dsc_resources_path)
 
-      puts "Copying vendored resources from #{dsc_resources_path_tmp}#{vendor_subdir} to #{vendor_dsc_resources_path}"
+      puts "Copying vendored resources from #{dsc_resources_path_tmp}/#{dsc_central_repo_resource_folders} to #{vendor_dsc_resources_path}"
       FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{#{folder_exp}}/."], vendor_dsc_resources_path, :remove_destination => true
       FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{#{folder_exp}}/."], dsc_resources_path, :remove_destination => true
 
