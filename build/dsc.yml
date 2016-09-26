@@ -1,5 +1,12 @@
 ---
 # central repository for PowerShell Desired State Configuration (DSC) resources
+# defaults
+#   url: 'https://github.com/PowerShell/DscResources.git'
+#   branch: 'master'
+#   dsc_folders:
+#     - 'dscresources'
+#     - 'xDscResources'
+
 central_repository:
   url: 'https://github.com/msutter/DscResources.git'
   branch: 'build_test'
@@ -8,6 +15,7 @@ central_repository:
     - 'xDscResources'
 
 # blacklisted DSC modules
+# default: empty array
 blacklist:
   - xChrome
   - xDSCResourceDesigner
@@ -15,3 +23,7 @@ blacklist:
   - xFirefox
   - xSafeHarbor
   - xSystemSecurity
+
+# should the powershell modules be embedded in the generated puppet module
+# default: true
+embedded_posh_modules: true
