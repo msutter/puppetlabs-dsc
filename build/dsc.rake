@@ -22,7 +22,7 @@ namespace :dsc do
   # defaults
   default_dsc_module_path    = dsc_build_path.parent
   default_dsc_resources_path = "#{default_dsc_module_path}/import/dsc_resources"
-  vendor_dsc_resources_path  = "#{default_dsc_module_path}/lib/puppet_x/dsc_resources"
+  # vendor_dsc_resources_path  = "#{default_dsc_module_path}/lib/puppet_x/dsc_resources"
 
   default_types_path         = "#{default_dsc_module_path}/lib/puppet/type"
   default_type_specs_path    = "#{default_dsc_module_path}/spec/unit/puppet/type"
@@ -55,6 +55,7 @@ namespace :dsc do
     end
 
     Rake::Task['dsc:resources:import'].invoke unless File.exists?(default_dsc_resources_path)
+    Rake::Task['dsc:resources:embed'].invoke(dsc_module_path)
     Rake::Task['dsc:types:clean'].invoke(dsc_module_path)
     Rake::Task['dsc:types:build'].invoke(dsc_module_path)
     Rake::Task['dsc:types:document'].invoke(dsc_module_path)
@@ -65,7 +66,7 @@ namespace :dsc do
     dsc_module_path = args[:dsc_module_path] || default_dsc_module_path
 
     Rake::Task['dsc:types:clean'].invoke(dsc_module_path)
-    Rake::Task['dsc:resources:clean'].invoke(default_dsc_resources_path)
+    Rake::Task['dsc:resources:clean'].invoke(dsc_module_path)
   end
 
   namespace :resources do
@@ -85,7 +86,7 @@ eod
       update_versions = args[:update_versions] || false
       is_custom_resource = (dsc_resources_path != default_dsc_resources_path)
       branch = dsc_central_repo_branch
-      folder_exp = dsc_central_repo_resource_folders.join(',')
+      folders_string = dsc_central_repo_resource_folders.join(',')
 
       if !is_custom_resource
         puts "Downloading and Importing #{item_name}"
@@ -114,7 +115,7 @@ eod
 
       puts "Getting latest release tags for DSC resources..."
 
-      Dir["#{dsc_resources_path_tmp}/{folder_exp}/*"].each do |dsc_resource_path|
+      Dir["#{dsc_resources_path_tmp}/{folders_string}/*"].each do |dsc_resource_path|
         dsc_resource_name = Pathname.new(dsc_resource_path).basename
         FileUtils.cd(dsc_resource_path) do
           # --date-order probably doesn't matter
@@ -167,26 +168,40 @@ eod
       FileUtils.rm_rf(Dir["#{dsc_resources_path_tmp}/**/.{gitattributes,gitignore,gitmodules}"])
       FileUtils.rm_rf(Dir["#{dsc_resources_path_tmp}/**/*.{pptx,docx,sln,cmd,xml,pssproj,pfx,html,txt,xlsm,csv,png,git,yml,md}"])
 
-      # make sure dsc_resources folder exists in puppetx
-      FileUtils.mkdir_p(vendor_dsc_resources_path) unless File.directory?(vendor_dsc_resources_path)
+
+      # # make sure dsc_resources folder exists in puppetx
+      # FileUtils.mkdir_p(vendor_dsc_resources_path) unless File.directory?(vendor_dsc_resources_path)
 
       # make sure dsc_resources folder exists in import
       FileUtils.mkdir_p(dsc_resources_path) unless File.directory?(dsc_resources_path)
 
-      puts "Copying vendored resources from #{dsc_resources_path_tmp}/#{dsc_central_repo_resource_folders} to #{vendor_dsc_resources_path}"
-      FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{#{folder_exp}}/."], vendor_dsc_resources_path, :remove_destination => true
-      FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{#{folder_exp}}/."], dsc_resources_path, :remove_destination => true
+      puts "Copying vendored resources from #{dsc_resources_path_tmp}/#{dsc_central_repo_resource_folders} to #{dsc_resources_path}"
+      # FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{#{folders_string}}/."], vendor_dsc_resources_path, :remove_destination => true
+      FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{#{folders_string}}/."], dsc_resources_path, :remove_destination => true
 
       if !is_custom_resource
-        puts "Copying vendored resources from #{default_dsc_module_path}/build/vendor/wmf_dsc_resources to #{dsc_resources_path}"
+        puts "Copying vendored base resources from #{default_dsc_module_path}/build/vendor/wmf_dsc_resources to #{dsc_resources_path}"
         FileUtils.cp_r "#{default_dsc_module_path}/build/vendor/wmf_dsc_resources/.", "#{dsc_resources_path}/"
-      else
-        puts "Adding custom types to '#{default_dsc_resources_path}'"
-        FileUtils.cp_r "#{dsc_resources_path_tmp}/.", "#{default_dsc_resources_path}/"
       end
 
       puts "Removing extra dir #{dsc_resources_path_tmp}"
       FileUtils.rm_rf "#{dsc_resources_path_tmp}"
+    end
+
+    desc <<-eod
+    Embed #{item_name}
+
+Default values:
+  dsc_resources_path: #{default_dsc_resources_path}"
+eod
+
+    task :embed, [:module_path] do |t, args|
+      module_path = args[:module_path] || default_dsc_module_path
+      vendor_dsc_resources_path = "#{module_path}/lib/puppet_x/dsc_resources"
+      puts "Copying vendored resources from #{default_dsc_resources_path} to #{vendor_dsc_resources_path}"
+      # make sure dsc_resources folder exists in puppetx
+      FileUtils.mkdir_p(vendor_dsc_resources_path) unless File.directory?(vendor_dsc_resources_path)
+      FileUtils.cp_r Dir["#{default_dsc_resources_path}/."], vendor_dsc_resources_path, :remove_destination => true
     end
 
     desc <<-eod
@@ -196,12 +211,13 @@ Default values:
   dsc_resources_path: #{default_dsc_resources_path}"
 eod
 
-    task :clean, [:dsc_resources_path] do |t, args|
-      dsc_resources_path = args[:dsc_resources_path] || default_dsc_resources_path
+    task :clean, [:module_path] do |t, args|
+      module_path = args[:module_path] || default_dsc_module_path
+      vendor_dsc_resources_path = "#{module_path}/lib/puppet_x/dsc_resources"
+      binding.pry
       puts "Cleaning #{item_name}"
-      FileUtils.rm_rf "#{dsc_resources_path}"
-      FileUtils.rm_rf "#{vendor_dsc_resources_path}"
       FileUtils.rm_rf "#{default_dsc_module_path}/import"
+      FileUtils.rm_rf "#{vendor_dsc_resources_path}"
     end
 
   end
@@ -226,7 +242,7 @@ eod
       module_path = args[:module_path] || default_dsc_module_path
       m = Dsc::Manager.new
       m.target_module_path = module_path
-      m.document_types("#{default_dsc_module_path}/types.md", m.get_dsc_types)
+      m.document_types("#{module_path}/types.md", m.get_dsc_types)
     end
 
     desc "Cleanup #{item_name}"
