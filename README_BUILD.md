@@ -23,6 +23,7 @@ rake dsc:dmtf:clean        # Cleanup DMTF CIM MOF Schema files
 rake dsc:dmtf:import       # Import DMTF CIM MOF Schema files
 rake dsc:resources:clean   # Cleanup DSC Powershell modules files
 rake dsc:resources:import  # Import DSC Powershell modules files
+rake dsc:resources:embed   # Embed DSC Powershell modules files
 rake dsc:types:build       # Build DSC types in (lib/puppet/type)
 rake dsc:types:clean       # Cleanup DSC types in (lib/puppet/type)
 ~~~

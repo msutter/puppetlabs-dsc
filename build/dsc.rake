@@ -64,7 +64,6 @@ namespace :dsc do
   desc "Cleanup all"
   task :clean, [:dsc_module_path] do |t, args|
     dsc_module_path = args[:dsc_module_path] || default_dsc_module_path
-
     Rake::Task['dsc:types:clean'].invoke(dsc_module_path)
     Rake::Task['dsc:resources:clean'].invoke(dsc_module_path)
   end
@@ -214,7 +213,6 @@ eod
     task :clean, [:module_path] do |t, args|
       module_path = args[:module_path] || default_dsc_module_path
       vendor_dsc_resources_path = "#{module_path}/lib/puppet_x/dsc_resources"
-      binding.pry
       puts "Cleaning #{item_name}"
       FileUtils.rm_rf "#{default_dsc_module_path}/import"
       FileUtils.rm_rf "#{vendor_dsc_resources_path}"
