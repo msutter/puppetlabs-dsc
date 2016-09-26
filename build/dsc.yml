@@ -10,9 +10,6 @@
 central_repository:
   url: 'https://github.com/msutter/DscResources.git'
   branch: 'build_test'
-  dsc_folders:
-    - 'dscresources'
-    - 'xDscResources'
 
 # blacklisted DSC modules
 # default: empty array

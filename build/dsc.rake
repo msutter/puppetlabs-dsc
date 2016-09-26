@@ -1,7 +1,14 @@
 require 'yaml'
 
-namespace :dsc do
+class String
+  def to_bool
+    return true   if self == true   || self =~ (/(true|t|yes|y|1)$/i)
+    return false  if self == false  || self =~ (/(false|f|no|n|0)$/i)
+    raise ArgumentError.new("invalid value for Boolean: \"#{self}\"")
+  end
+end
 
+namespace :dsc do
 
   # local pathes
   dsc_build_path             = Pathname.new(__FILE__).dirname
@@ -22,23 +29,21 @@ namespace :dsc do
   # defaults
   default_dsc_module_path    = dsc_build_path.parent
   default_dsc_resources_path = "#{default_dsc_module_path}/import/dsc_resources"
-  # vendor_dsc_resources_path  = "#{default_dsc_module_path}/lib/puppet_x/dsc_resources"
 
   default_types_path         = "#{default_dsc_module_path}/lib/puppet/type"
   default_type_specs_path    = "#{default_dsc_module_path}/spec/unit/puppet/type"
 
   dsc_resources_file         = "#{default_dsc_module_path}/dsc_resource_release_tags.yml"
 
-  dsc_central_repo_url              = 'https://github.com/PowerShell/DscResources.git'
-  dsc_central_repo_branch           = 'master'
-  dsc_central_repo_resource_folders = ['xDscResources', 'dscresources']
-  blacklist                         = ["xChrome", "xDSCResourceDesigner", "xDscDiagnostics", "xFirefox", "xSafeHarbor", "xSystemSecurity"]
+  dsc_central_repo_url       = 'https://github.com/PowerShell/DscResources.git'
+  dsc_central_repo_branch    = 'master'
+  blacklist                  = ["xChrome", "xDSCResourceDesigner", "xDscDiagnostics", "xFirefox", "xSafeHarbor", "xSystemSecurity"]
+  embedded_posh_modules      = true
 
   # overwrite defaults with config file values if they exists
   if config.has_key?('central_repository')
     dsc_central_repo_url              = config['central_repository']['url'] if config['central_repository'].has_key?('url')
     dsc_central_repo_branch           = config['central_repository']['branch'] if config['central_repository'].has_key?('branch')
-    dsc_central_repo_resource_folders = config['central_repository']['dsc_folders'] if config['central_repository'].has_key?('dsc_folders')
   end
 
   if config.has_key?('blacklist')
@@ -46,16 +51,35 @@ namespace :dsc do
   end
 
 
-  desc "Import and build all"
-  task :build, [:dsc_module_path] do |t, args|
-    dsc_module_path = args[:dsc_module_path] || default_dsc_module_path
+
+  if config.has_key?('embedded_posh_modules')
+    embedded_posh_modules = config['embedded_posh_modules']
+  end
+
+
+  desc "Build all (import and build)"
+  task :build, [:dsc_module_path, :central_repo_url, :repo_branch] do |t, args|
+
+    dsc_module_path       = args[:dsc_module_path] || default_dsc_module_path
+    central_repo_url      = args[:central_repo_url] || dsc_central_repo_url
+    repo_branch           = args[:repo_branch] || dsc_central_repo_branch
 
     if args[:dsc_module_path]
       Rake::Task['dsc:module:skeleton'].invoke(dsc_module_path)
+    else
+      Rake::Task['dsc:resources:base'].invoke()
     end
 
-    Rake::Task['dsc:resources:import'].invoke unless File.exists?(default_dsc_resources_path)
-    Rake::Task['dsc:resources:embed'].invoke(dsc_module_path)
+    # TODO
+    update_versions = true
+    Rake::Task['dsc:resources:import'].invoke(
+      update_versions,
+      central_repo_url,
+      repo_branch,
+      )
+      # ) unless File.exists?(default_dsc_resources_path)
+
+    Rake::Task['dsc:resources:embed'].invoke(dsc_module_path) if embedded_posh_modules
     Rake::Task['dsc:types:clean'].invoke(dsc_module_path)
     Rake::Task['dsc:types:build'].invoke(dsc_module_path)
     Rake::Task['dsc:types:document'].invoke(dsc_module_path)
@@ -71,6 +95,17 @@ namespace :dsc do
   namespace :resources do
 
     item_name = 'DSC Powershell modules files'
+
+    desc <<-eod
+    Base #{item_name}
+eod
+
+    task :base do |t|
+      puts "Copying vendored base resources from #{default_dsc_module_path}/build/vendor/wmf_dsc_resources to #{default_dsc_resources_path}"
+      FileUtils.mkdir_p(default_dsc_resources_path) unless File.directory?(default_dsc_resources_path)
+      FileUtils.cp_r "#{default_dsc_module_path}/build/vendor/wmf_dsc_resources/.", "#{default_dsc_resources_path}/"
+    end
+
     desc <<-eod
     Import #{item_name}
 
@@ -78,34 +113,50 @@ Default values:
   dsc_resources_path: #{default_dsc_resources_path}
 eod
 
-    task :import, [:dsc_resources_path, :update_versions] do |t, args|
+    task :import, [:update_versions, :central_repo_url, :repo_branch] do |t, args|
       dsc_resources_path = args[:dsc_resources_path] || default_dsc_resources_path
       dsc_resources_path = File.expand_path(dsc_resources_path)
       dsc_resources_path_tmp = "#{dsc_resources_path}_tmp"
-      update_versions = args[:update_versions] || false
-      is_custom_resource = (dsc_resources_path != default_dsc_resources_path)
+      update_versions = args[:update_versions] ? args[:update_versions] :  false
+
+      central_repo_url      = args[:central_repo_url]
+      repo_branch           = args[:repo_branch]
+      folders_string        = args[:repo_resource_folders_string]
+
+      is_custom_resource = (dsc_central_repo_url != central_repo_url)
       branch = dsc_central_repo_branch
-      folders_string = dsc_central_repo_resource_folders.join(',')
 
-      if !is_custom_resource
-        puts "Downloading and Importing #{item_name}"
-        cmd = ''
-        cmd = "git clone -b #{branch} #{dsc_central_repo_url} #{dsc_resources_path_tmp} && " unless Dir.exist? dsc_resources_path_tmp
-        cmd += "cd #{dsc_resources_path_tmp}"
-        cmd += " && git checkout #{ENV['DSC_REF']}" if ENV['DSC_REF']
-        cmd += " && git submodule update --init"
+      puts "Downloading and Importing #{item_name}"
 
-        sh cmd
-      else
-        puts "Importing custom types from '#{dsc_resources_path}'"
-        FileUtils.mkdir_p "#{dsc_resources_path_tmp}"
-        FileUtils.cp_r "#{dsc_resources_path}/.", "#{dsc_resources_path_tmp}/"
+      # clone
+      unless Dir.exist? dsc_resources_path_tmp
+        clone_cmd = "git clone -b #{branch} #{dsc_central_repo_url} #{dsc_resources_path_tmp}"
+        sh clone_cmd
       end
 
+      # get submodules
+      sub_cmd = "cd #{dsc_resources_path_tmp}"
+      sub_cmd += " && git submodule"
+      submodules_strings = `#{sub_cmd}`
+
+      submodules = submodules_strings.split("\n").collect{ |s| {
+          :commit => s.split(' ')[0],
+          :path => s.split(' ')[1],
+          :tag => s.split(' ')[2]
+        }
+      }
+
+      post_cmd = "cd #{dsc_resources_path_tmp}"
+      post_cmd += "git checkout #{ENV['DSC_REF']}" if ENV['DSC_REF']
+      post_cmd += " && git submodule update --init" if submodules.any?
+      sh post_cmd
+
+      binding.pry
       puts "Cleaning out black-listed DSC resources: #{blacklist}"
       blacklist.each do |res|
-        dsc_central_repo_resource_folders.each do |dsc_resource_folder|
-          FileUtils.rm_rf("#{dsc_resources_path_tmp}/#{dsc_resource_folder}/#{res}")
+        submodules.each do |submodule|
+          binding.pry
+          FileUtils.rm_rf("#{dsc_resources_path_tmp}/#{submodule[:path]}/#{res}")
         end
       end
 
@@ -114,9 +165,9 @@ eod
 
       puts "Getting latest release tags for DSC resources..."
 
-      Dir["#{dsc_resources_path_tmp}/{folders_string}/*"].each do |dsc_resource_path|
-        dsc_resource_name = Pathname.new(dsc_resource_path).basename
-        FileUtils.cd(dsc_resource_path) do
+      submodules.collect {|sm| "#{dsc_resources_path_tmp}/#{sm[:path]}"}.each do |submodule_path|
+        dsc_resource_name = Pathname.new(submodule_path).basename
+        FileUtils.cd(submodule_path) do
           # --date-order probably doesn't matter
           # Requires git version 2.2.0 or higher - https://github.com/git/git/commit/9271095cc5571e306d709ebf8eb7f0a388254d9d
           tags_raw = %x{ git log --tags --pretty=format:'%D' --simplify-by-decoration --date-order }
@@ -174,17 +225,14 @@ eod
       # make sure dsc_resources folder exists in import
       FileUtils.mkdir_p(dsc_resources_path) unless File.directory?(dsc_resources_path)
 
-      puts "Copying vendored resources from #{dsc_resources_path_tmp}/#{dsc_central_repo_resource_folders} to #{dsc_resources_path}"
-      # FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{#{folders_string}}/."], vendor_dsc_resources_path, :remove_destination => true
-      FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{#{folders_string}}/."], dsc_resources_path, :remove_destination => true
-
-      if !is_custom_resource
-        puts "Copying vendored base resources from #{default_dsc_module_path}/build/vendor/wmf_dsc_resources to #{dsc_resources_path}"
-        FileUtils.cp_r "#{default_dsc_module_path}/build/vendor/wmf_dsc_resources/.", "#{dsc_resources_path}/"
+        binding.pry
+      submodules.collect {|sm| "#{dsc_resources_path_tmp}/#{sm[:path]}"}.each do |submodule_path|
+        puts "Copying vendored resources from #{submodule_path} to #{dsc_resources_path}"
+        FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{#{folders_string}}/."], dsc_resources_path, :remove_destination => true
       end
 
       puts "Removing extra dir #{dsc_resources_path_tmp}"
-      FileUtils.rm_rf "#{dsc_resources_path_tmp}"
+      # FileUtils.rm_rf "#{dsc_resources_path_tmp}"
     end
 
     desc <<-eod
