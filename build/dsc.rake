@@ -58,11 +58,12 @@ namespace :dsc do
 
 
   desc "Build all (import and build)"
-  task :build, [:dsc_module_path, :central_repo_url, :repo_branch] do |t, args|
+  task :build, [:dsc_module_path, :central_repo_url, :repo_branch, :update_versions] do |t, args|
 
     dsc_module_path       = args[:dsc_module_path] || default_dsc_module_path
     central_repo_url      = args[:central_repo_url] || dsc_central_repo_url
     repo_branch           = args[:repo_branch] || dsc_central_repo_branch
+    update_versions       = args[:update_versions] || false
 
     if args[:dsc_module_path]
       Rake::Task['dsc:module:skeleton'].invoke(dsc_module_path)
@@ -71,11 +72,10 @@ namespace :dsc do
     end
 
     # TODO
-    update_versions = true
     Rake::Task['dsc:resources:import'].invoke(
-      update_versions,
       central_repo_url,
       repo_branch,
+      update_versions,
       )
       # ) unless File.exists?(default_dsc_resources_path)
 
@@ -113,7 +113,7 @@ Default values:
   dsc_resources_path: #{default_dsc_resources_path}
 eod
 
-    task :import, [:update_versions, :central_repo_url, :repo_branch] do |t, args|
+    task :import, [:central_repo_url, :repo_branch, :update_versions] do |t, args|
       dsc_resources_path = args[:dsc_resources_path] || default_dsc_resources_path
       dsc_resources_path = File.expand_path(dsc_resources_path)
       dsc_resources_path_tmp = "#{dsc_resources_path}_tmp"
@@ -198,7 +198,6 @@ eod
             tracked_version = resource_tags["#{dsc_resource_name}"]
 
             update_version = tracked_version.nil? ? true : update_versions
-
             if update_version
               puts "Using the latest/available reference of #{latest_version} for #{dsc_resource_name}."
               checkout_version = latest_version
@@ -237,8 +236,8 @@ eod
       FileUtils.mkdir_p(dsc_resources_path) unless File.directory?(dsc_resources_path)
 
       submodules.each do |submodule|
-        puts "Copying vendored resources from #{submodule_abs_path} to #{dsc_resources_path}/#{submodule[:name]}"
         submodule_abs_path = "#{dsc_resources_path_tmp}/#{submodule[:path]}"
+        puts "Copying vendored resources from #{submodule_abs_path} to #{dsc_resources_path}/#{submodule[:name]}"
         FileUtils.cp_r submodule_abs_path, "#{dsc_resources_path}/#{submodule[:name]}", :remove_destination => true
       end
 
