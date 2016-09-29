@@ -238,7 +238,7 @@ eod
       submodules.each do |submodule|
         submodule_abs_path = "#{dsc_resources_path_tmp}/#{submodule[:path]}"
         puts "Copying vendored resources from #{submodule_abs_path} to #{dsc_resources_path}/#{submodule[:name]}"
-        FileUtils.cp_r submodule_abs_path, "#{dsc_resources_path}/#{submodule[:name]}", :remove_destination => true
+        FileUtils.cp_r "#{submodule_abs_path}/.", "#{dsc_resources_path}/#{submodule[:name]}", :remove_destination => true,:verbose =>true
       end
 
       puts "Removing extra dir #{dsc_resources_path_tmp}"
@@ -255,7 +255,7 @@ eod
     task :embed, [:module_path] do |t, args|
       module_path = args[:module_path] || default_dsc_module_path
       vendor_dsc_resources_path = "#{module_path}/lib/puppet_x/dsc_resources"
-      puts "Copying vendored resources from #{default_dsc_resources_path} to #{vendor_dsc_resources_path}"
+      puts "Copying vendored resources from '#{default_dsc_resources_path}/.' to '#{vendor_dsc_resources_path}'"
       # make sure dsc_resources folder exists in puppetx
       FileUtils.mkdir_p(vendor_dsc_resources_path) unless File.directory?(vendor_dsc_resources_path)
       FileUtils.cp_r Dir["#{default_dsc_resources_path}/."], vendor_dsc_resources_path, :remove_destination => true
