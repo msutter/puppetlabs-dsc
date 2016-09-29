@@ -157,7 +157,7 @@ eod
       if submodules.empty?
         submodules = [{
           :commit => nil,
-          :path   => '',
+          :path   => nil,
           :name   => mod_name,
           :tag    => nil
         }]
@@ -236,7 +236,8 @@ eod
       FileUtils.mkdir_p(dsc_resources_path) unless File.directory?(dsc_resources_path)
 
       submodules.each do |submodule|
-        submodule_abs_path = "#{dsc_resources_path_tmp}/#{submodule[:path]}"
+        submodule_abs_path = dsc_resources_path_tmp
+        submodule_abs_path += "/#{submodule[:path]}" if submodule[:path]
         puts "Copying vendored resources from #{submodule_abs_path} to #{dsc_resources_path}/#{submodule[:name]}"
         FileUtils.cp_r "#{submodule_abs_path}/.", "#{dsc_resources_path}/#{submodule[:name]}", :remove_destination => true,:verbose =>true
       end
