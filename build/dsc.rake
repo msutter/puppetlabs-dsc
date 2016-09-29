@@ -60,7 +60,6 @@ namespace :dsc do
     update_versions       = (args[:update_versions] || 'false').to_bool
     embedded_posh_modules = (args[:embedded_posh_modules] || 'true').to_bool
 
-    binding.pry
     if args[:dsc_module_path]
       Rake::Task['dsc:module:skeleton'].invoke(dsc_module_path)
     else
