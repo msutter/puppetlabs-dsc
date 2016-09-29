@@ -121,23 +121,23 @@ eod
 
       central_repo_url      = args[:central_repo_url]
       repo_branch           = args[:repo_branch]
-      folders_string        = args[:repo_resource_folders_string]
 
       is_custom_resource = (dsc_central_repo_url != central_repo_url)
-      branch = dsc_central_repo_branch
 
       puts "Downloading and Importing #{item_name}"
 
       # clone
       unless Dir.exist? dsc_resources_path_tmp
-        clone_cmd = "git clone -b #{branch} #{dsc_central_repo_url} #{dsc_resources_path_tmp}"
+        clone_cmd = "git clone -b #{repo_branch} #{central_repo_url} #{dsc_resources_path_tmp}"
         sh clone_cmd
       end
 
+      mod_name = central_repo_url.split('/').last.split('.').first
+
       # get submodules
-      sub_cmd = "cd #{dsc_resources_path_tmp}"
-      sub_cmd += " && git submodule"
+      sub_cmd = "git -C #{dsc_resources_path_tmp} submodule"
       submodules_strings = `#{sub_cmd}`
+
 
       submodules = submodules_strings.split("\n").collect{ |s| {
           :commit => s.split(' ')[0],
@@ -147,14 +147,25 @@ eod
         }
       }
 
-      post_cmd = "cd #{dsc_resources_path_tmp}"
-      post_cmd += "git checkout #{ENV['DSC_REF']}" if ENV['DSC_REF']
-      post_cmd += " && git submodule update --init" if submodules.any?
-      sh post_cmd
+      post_cmd = ''
+      post_cmd += "git -C #{dsc_resources_path_tmp} checkout #{ENV['DSC_REF']}\n" if ENV['DSC_REF']
+      post_cmd += "git -C #{dsc_resources_path_tmp} submodule update --init" if submodules.any?
+      sh post_cmd if !post_cmd.empty?
+
+      # check if this is a repo with submodule. If not we assume that this is a standalone dsc module
+      # and process it as it was a submodule.
+      if submodules.empty?
+        submodules = [{
+          :commit => nil,
+          :path   => '',
+          :name   => mod_name,
+          :tag    => nil
+        }]
+      end
 
       puts "Cleaning out black-listed DSC resources: #{blacklist}"
       blacklisted_submodules = submodules.select { |sm| blacklist.include?(sm[:name])}
-      # remove blacklisted modules form array
+      # remove blacklisted modules form submodules array for further processing
       submodules = submodules - blacklisted_submodules
 
       # remove blacklisted module from disk
@@ -165,45 +176,47 @@ eod
       resource_tags = {}
       resource_tags = YAML::load_file("#{dsc_resources_file}") if File.exist? dsc_resources_file
 
-      puts "Getting latest release tags for DSC resources..."
+      if !is_custom_resource
+        puts "Getting latest release tags for DSC resources..."
+        submodules.collect {|submodule| "#{dsc_resources_path_tmp}/#{submodule[:path]}"}.each do |submodule_path|
+          dsc_resource_name = Pathname.new(submodule_path).basename
+          FileUtils.cd(submodule_path) do
+            # --date-order probably doesn't matter
+            # Requires git version 2.2.0 or higher - https://github.com/git/git/commit/9271095cc5571e306d709ebf8eb7f0a388254d9d
+            tags_raw = %x{ git log --tags --pretty=format:'%D' --simplify-by-decoration --date-order }
 
-      submodules.collect {|submodule| "#{dsc_resources_path_tmp}/#{submodule[:path]}"}.each do |submodule_path|
-        dsc_resource_name = Pathname.new(submodule_path).basename
-        FileUtils.cd(submodule_path) do
-          # --date-order probably doesn't matter
-          # Requires git version 2.2.0 or higher - https://github.com/git/git/commit/9271095cc5571e306d709ebf8eb7f0a388254d9d
-          tags_raw = %x{ git log --tags --pretty=format:'%D' --simplify-by-decoration --date-order }
-          # If the conversion of string to version starts to result in errors,
-          # we should explore pushing this out out to a method where we can
-          # clean up the tags that may have prerelease versions in them
-          # similar to what was done in the Chocolatey module
-          versions = tags_raw.scan(/(\S+)\-PSGallery/).map { | ver | Gem::Version.new(ver[0]) }
-          if versions.empty?
-            raise "#{dsc_resource_name} does not have any '*-PSGallery' tags. Appears it has not been released yet. Tags found #{tags_raw.to_s}"
+            # If the conversion of string to version starts to result in errors,
+            # we should explore pushing this out out to a method where we can
+            # clean up the tags that may have prerelease versions in them
+            # similar to what was done in the Chocolatey module
+            versions = tags_raw.scan(/(\S+)\-PSGallery/).map { | ver | Gem::Version.new(ver[0]) }
+            if versions.empty?
+              raise "#{dsc_resource_name} does not have any '*-PSGallery' tags. Appears it has not been released yet. Tags found #{tags_raw.to_s}"
+            end
+
+            latest_version = versions.max.to_s + "-PSGallery"
+            tracked_version = resource_tags["#{dsc_resource_name}"]
+
+            update_version = tracked_version.nil? ? true : update_versions
+
+            if update_version
+              puts "Using the latest/available reference of #{latest_version} for #{dsc_resource_name}."
+              checkout_version = latest_version
+            else
+              puts "Using the specified reference of #{tracked_version} for #{dsc_resource_name}."
+              checkout_version = tracked_version
+            end
+
+            # If the checkout_version is not a standard PSGallery tag, a git fetch
+            # is required before a git checkout e.g. for commits or non-default branch names
+            if !(checkout_version =~ /-PSGallery/)
+              puts "#{checkout_version} is not a PSGallery tag. Fetching from git remote"
+              sh "git fetch"
+            end
+
+            sh "git checkout #{checkout_version}"
+            resource_tags["#{dsc_resource_name}"] = checkout_version.encode("UTF-8")
           end
-
-          latest_version = versions.max.to_s + "-PSGallery"
-          tracked_version = resource_tags["#{dsc_resource_name}"]
-
-          update_version = tracked_version.nil? ? true : update_versions
-
-          if update_version
-            puts "Using the latest/available reference of #{latest_version} for #{dsc_resource_name}."
-            checkout_version = latest_version
-          else
-            puts "Using the specified reference of #{tracked_version} for #{dsc_resource_name}."
-            checkout_version = tracked_version
-          end
-
-          # If the checkout_version is not a standard PSGallery tag, a git fetch
-          # is required before a git checkout e.g. for commits or non-default branch names
-          if !(checkout_version =~ /-PSGallery/)
-            puts "#{checkout_version} is not a PSGallery tag. Fetching from git remote"
-            sh "git fetch"
-          end
-
-          sh "git checkout #{checkout_version}"
-          resource_tags["#{dsc_resource_name}"] = checkout_version.encode("UTF-8")
         end
       end
 
@@ -220,21 +233,17 @@ eod
       FileUtils.rm_rf(Dir["#{dsc_resources_path_tmp}/**/.{gitattributes,gitignore,gitmodules}"])
       FileUtils.rm_rf(Dir["#{dsc_resources_path_tmp}/**/*.{pptx,docx,sln,cmd,xml,pssproj,pfx,html,txt,xlsm,csv,png,git,yml,md}"])
 
-
-      # # make sure dsc_resources folder exists in puppetx
-      # FileUtils.mkdir_p(vendor_dsc_resources_path) unless File.directory?(vendor_dsc_resources_path)
-
       # make sure dsc_resources folder exists in import
       FileUtils.mkdir_p(dsc_resources_path) unless File.directory?(dsc_resources_path)
 
-      submodules.collect {|submodule| "#{dsc_resources_path_tmp}/#{submodule[:path]}"}.each do |submodule_path|
-        binding.pry
-        puts "Copying vendored resources from #{submodule_path} to #{dsc_resources_path}"
-        FileUtils.cp_r submodule_path, dsc_resources_path, :remove_destination => true
+      submodules.each do |submodule|
+        puts "Copying vendored resources from #{submodule_abs_path} to #{dsc_resources_path}/#{submodule[:name]}"
+        submodule_abs_path = "#{dsc_resources_path_tmp}/#{submodule[:path]}"
+        FileUtils.cp_r submodule_abs_path, "#{dsc_resources_path}/#{submodule[:name]}", :remove_destination => true
       end
 
       puts "Removing extra dir #{dsc_resources_path_tmp}"
-      # FileUtils.rm_rf "#{dsc_resources_path_tmp}"
+      FileUtils.rm_rf "#{dsc_resources_path_tmp}"
     end
 
     desc <<-eod
