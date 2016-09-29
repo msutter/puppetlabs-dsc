@@ -29,12 +29,9 @@ namespace :dsc do
   # defaults
   default_dsc_module_path    = dsc_build_path.parent
   default_dsc_resources_path = "#{default_dsc_module_path}/import/dsc_resources"
-
   default_types_path         = "#{default_dsc_module_path}/lib/puppet/type"
   default_type_specs_path    = "#{default_dsc_module_path}/spec/unit/puppet/type"
-
   dsc_resources_file         = "#{default_dsc_module_path}/dsc_resource_release_tags.yml"
-
   dsc_central_repo_url       = 'https://github.com/PowerShell/DscResources.git'
   dsc_central_repo_branch    = 'master'
   blacklist                  = ["xChrome", "xDSCResourceDesigner", "xDscDiagnostics", "xFirefox", "xSafeHarbor", "xSystemSecurity"]
@@ -50,21 +47,20 @@ namespace :dsc do
     blacklist = config['blacklist']
   end
 
-
-
   if config.has_key?('embedded_posh_modules')
     embedded_posh_modules = config['embedded_posh_modules']
   end
 
-
-  desc "Build all (import and build)"
-  task :build, [:dsc_module_path, :central_repo_url, :repo_branch, :update_versions] do |t, args|
+  desc "Build Resources from Central repository for PowerShell Desired State Configuration"
+  task :build, [:dsc_module_path, :central_repo_url, :repo_branch, :embedded_posh_modules, :update_versions] do |t, args|
 
     dsc_module_path       = args[:dsc_module_path] || default_dsc_module_path
     central_repo_url      = args[:central_repo_url] || dsc_central_repo_url
     repo_branch           = args[:repo_branch] || dsc_central_repo_branch
-    update_versions       = args[:update_versions] || false
+    update_versions       = (args[:update_versions] || 'false').to_bool
+    embedded_posh_modules = (args[:embedded_posh_modules] || 'true').to_bool
 
+    binding.pry
     if args[:dsc_module_path]
       Rake::Task['dsc:module:skeleton'].invoke(dsc_module_path)
     else
@@ -377,7 +373,8 @@ eos
         puts "Creating #{dsc_module_path}/Gemfile"
         Gemfile_content = File.read('Gemfile')
         File.open("#{dsc_module_path}/Gemfile", 'w') do |file|
-          file.write Gemfile_content.gsub(/^group.*^end$/m,'')
+          #file.write Gemfile_content.gsub(/^group.*^end$/m,'')
+          file.write Gemfile_content
         end
       end
 
