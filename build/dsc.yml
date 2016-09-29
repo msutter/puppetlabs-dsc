@@ -20,6 +20,7 @@ blacklist:
   - xFirefox
   - xSafeHarbor
   - xSystemSecurity
+  - OfficeOnlineServerDsc
 
 # should the powershell modules be embedded in the generated puppet module
 # default: true

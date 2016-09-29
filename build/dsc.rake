@@ -141,8 +141,9 @@ eod
 
       submodules = submodules_strings.split("\n").collect{ |s| {
           :commit => s.split(' ')[0],
-          :path => s.split(' ')[1],
-          :tag => s.split(' ')[2]
+          :path   => s.split(' ')[1],
+          :name   => s.split(' ')[1].split('/').last,
+          :tag    => s.split(' ')[2]
         }
       }
 
@@ -151,13 +152,14 @@ eod
       post_cmd += " && git submodule update --init" if submodules.any?
       sh post_cmd
 
-      binding.pry
       puts "Cleaning out black-listed DSC resources: #{blacklist}"
-      blacklist.each do |res|
-        submodules.each do |submodule|
-          binding.pry
-          FileUtils.rm_rf("#{dsc_resources_path_tmp}/#{submodule[:path]}/#{res}")
-        end
+      blacklisted_submodules = submodules.select { |sm| blacklist.include?(sm[:name])}
+      # remove blacklisted modules form array
+      submodules = submodules - blacklisted_submodules
+
+      # remove blacklisted module from disk
+      blacklisted_submodules.each do |bsm|
+          FileUtils.rm_rf("#{dsc_resources_path_tmp}/#{bsm[:path]}")
       end
 
       resource_tags = {}
@@ -165,7 +167,7 @@ eod
 
       puts "Getting latest release tags for DSC resources..."
 
-      submodules.collect {|sm| "#{dsc_resources_path_tmp}/#{sm[:path]}"}.each do |submodule_path|
+      submodules.collect {|submodule| "#{dsc_resources_path_tmp}/#{submodule[:path]}"}.each do |submodule_path|
         dsc_resource_name = Pathname.new(submodule_path).basename
         FileUtils.cd(submodule_path) do
           # --date-order probably doesn't matter
@@ -225,10 +227,10 @@ eod
       # make sure dsc_resources folder exists in import
       FileUtils.mkdir_p(dsc_resources_path) unless File.directory?(dsc_resources_path)
 
+      submodules.collect {|submodule| "#{dsc_resources_path_tmp}/#{submodule[:path]}"}.each do |submodule_path|
         binding.pry
-      submodules.collect {|sm| "#{dsc_resources_path_tmp}/#{sm[:path]}"}.each do |submodule_path|
         puts "Copying vendored resources from #{submodule_path} to #{dsc_resources_path}"
-        FileUtils.cp_r Dir["#{dsc_resources_path_tmp}/{#{folders_string}}/."], dsc_resources_path, :remove_destination => true
+        FileUtils.cp_r submodule_path, dsc_resources_path, :remove_destination => true
       end
 
       puts "Removing extra dir #{dsc_resources_path_tmp}"
