@@ -29,7 +29,7 @@ namespace :dsc do
   default_dsc_resources_path = "#{default_dsc_module_path}/import/dsc_resources"
   default_types_path         = "#{default_dsc_module_path}/lib/puppet/type"
   default_type_specs_path    = "#{default_dsc_module_path}/spec/unit/puppet/type"
-  dsc_resources_file         = "#{default_dsc_module_path}/dsc_resource_release_post_tags.yml"
+  dsc_resources_file         = "#{default_dsc_module_path}/dsc_resource_release_tags.yml"
 
   repositories = config.has_key?('repositories') ? config['repositories'] : []
   blacklist = config.has_key?('blacklist') ? config['blacklist'] : []
