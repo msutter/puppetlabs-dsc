@@ -254,7 +254,11 @@ eod
       puts "Copying vendored resources from '#{default_dsc_resources_path}/.' to '#{vendor_dsc_resources_path}'"
       # make sure dsc_resources folder exists in puppetx
       FileUtils.mkdir_p(vendor_dsc_resources_path) unless File.directory?(vendor_dsc_resources_path)
-      FileUtils.cp_r Dir["#{default_dsc_resources_path}/."], vendor_dsc_resources_path, :remove_destination => true
+      # exclude the base resources 'PSDesiredStateConfiguration' from the sync
+      resources_list = Dir["#{default_dsc_resources_path}/*"].reject do |file_path|
+        file_path =~ /^#{default_dsc_resources_path}\/PSDesiredStateConfiguration$/
+      end
+      FileUtils.cp_r resources_list, vendor_dsc_resources_path, :remove_destination => true
     end
 
     desc <<-eod
