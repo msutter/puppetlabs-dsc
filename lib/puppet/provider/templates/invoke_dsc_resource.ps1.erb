@@ -49,13 +49,15 @@ $invokeParams = @{
     -%>
     <%= name %> = <%= value %>
 <% end -%>
-  }<% if resource.respond_to?(:dscmeta_module_version) %>
+  }
+<% module_name = resource.embedded ? "\"#{vendored_modules_path}/#{resource.dscmeta_module_name}/#{resource.dscmeta_module_name}.psd1\"" : "\"#{resource.dscmeta_module_name}\"" -%>
+<% if resource.respond_to?(:dscmeta_module_version) -%>
   ModuleName = @{
-    ModuleName      = <%= "\"#{vendored_modules_path}/#{resource.dscmeta_module_name}/#{resource.dscmeta_module_name}.psd1\"" %>
+    ModuleName      = <%= module_name %>
     RequiredVersion = <%= "\"#{resource.dscmeta_module_version}\"" %>
   }
 <% else %>
-  ModuleName = <%= "\"#{resource.dscmeta_module_name}\"" %>
+  ModuleName = <%= module_name %>
 <% end -%>
 }
 

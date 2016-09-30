@@ -354,17 +354,34 @@ eod
 
       unless File.exists?("#{dsc_module_path}/Puppetfile")
         puts "Creating #{dsc_module_path}/Puppetfile"
-
         # Generate Puppetfile with dependency on this dsc module
         Puppetfile_content = <<-eos
 forge "https://forgeapi.puppetlabs.com"
-mod '#{dsc_build_path.parent.basename}', :git => '#{dsc_repo_url}'
+mod '#{dsc_build_path.parent.basename}', :git => '#{dsc_repo_url}', :ref => '#{dsc_repo_branch}'
 eos
-
-        File.open("#{dsc_module_path}/Puppetfile", 'w') do |file|
+       File.open("#{dsc_module_path}/Puppetfile", 'w') do |file|
           file.write Puppetfile_content
         end
+      end
 
+      # Generate metadata.json
+      unless File.exists?("#{dsc_module_path}/metadata.json")
+        puts "Creating #{dsc_module_path}/metadata.json"
+        root_dsc_metadata = JSON.parse(File.read('metadata.json'))
+        module_metadata = {}
+        module_metadata["name"] = module_name
+        module_metadata["tags"] = root_dsc_metadata["tags"]
+        module_metadata["operatingsystem_support"] = root_dsc_metadata["operatingsystem_support"]
+        module_metadata["requirements"] = root_dsc_metadata["requirements"]
+        module_metadata["dependencies"] = [
+          {
+            "name"=> root_dsc_metadata['name'].sub('-','/'),
+            "version_requirement" => root_dsc_metadata['version']
+          }
+        ]
+        File.open("#{dsc_module_path}/metadata.json", 'w') do |file|
+          file.write JSON.pretty_generate(module_metadata)
+        end
       end
 
       # Generate Gemfile without any groups
