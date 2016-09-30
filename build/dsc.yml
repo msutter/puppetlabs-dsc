@@ -7,9 +7,17 @@
 #     - 'dscresources'
 #     - 'xDscResources'
 
-central_repository:
-  url: 'https://github.com/msutter/DscResources.git'
-  branch: 'build_test'
+repositories:
+  - name: DSCResourceKit
+    url: 'https://github.com/msutter/DscResources.git'
+    branch: 'build_test'
+    release_post_tag: '-PSGallery'
+    update_versions: true
+
+  - name: Proget
+    url: 'https://gitlab.swisscloud.io/powershell/scproget.git'
+    branch: 'master'
+    update_versions: true
 
 # blacklisted DSC modules
 # default: empty array
@@ -22,6 +30,6 @@ blacklist:
   - xSystemSecurity
   - OfficeOnlineServerDsc
 
-# should the powershell modules be embedded in the generated puppet module
+# should the powershell dsc modules be embedded in the generated puppet module
 # default: true
-embedded_posh_modules: true
+embedded_dsc_modules: true

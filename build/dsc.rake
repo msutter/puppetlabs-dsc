@@ -21,9 +21,7 @@ namespace :dsc do
     config = YAML::load(File.open("#{dsc_build_path}/dsc.yml"))
     puts "Using values from config file #{config_file}"
   else
-    puts "Config file #{config_file} not found"
-    puts "Using default values"
-    config = {}
+    raise "Config file #{config_file} not found"
   end
 
   # defaults
@@ -31,34 +29,16 @@ namespace :dsc do
   default_dsc_resources_path = "#{default_dsc_module_path}/import/dsc_resources"
   default_types_path         = "#{default_dsc_module_path}/lib/puppet/type"
   default_type_specs_path    = "#{default_dsc_module_path}/spec/unit/puppet/type"
-  dsc_resources_file         = "#{default_dsc_module_path}/dsc_resource_release_tags.yml"
-  dsc_central_repo_url       = 'https://github.com/PowerShell/DscResources.git'
-  dsc_central_repo_branch    = 'master'
-  blacklist                  = ["xChrome", "xDSCResourceDesigner", "xDscDiagnostics", "xFirefox", "xSafeHarbor", "xSystemSecurity"]
-  embedded_posh_modules      = true
+  dsc_resources_file         = "#{default_dsc_module_path}/dsc_resource_release_post_tags.yml"
 
-  # overwrite defaults with config file values if they exists
-  if config.has_key?('central_repository')
-    dsc_central_repo_url              = config['central_repository']['url'] if config['central_repository'].has_key?('url')
-    dsc_central_repo_branch           = config['central_repository']['branch'] if config['central_repository'].has_key?('branch')
-  end
-
-  if config.has_key?('blacklist')
-    blacklist = config['blacklist']
-  end
-
-  if config.has_key?('embedded_posh_modules')
-    embedded_posh_modules = config['embedded_posh_modules']
-  end
+  repositories = config.has_key?('repositories') ? config['repositories'] : []
+  blacklist = config.has_key?('blacklist') ? config['blacklist'] : []
+  embedded_dsc_modules = config.has_key?('embedded_dsc_modules') ? config['embedded_dsc_modules'] : true
 
   desc "Build Resources from Central repository for PowerShell Desired State Configuration"
-  task :build, [:dsc_module_path, :central_repo_url, :repo_branch, :embedded_posh_modules, :update_versions] do |t, args|
+  task :build, [:dsc_module_path, :central_repo_url, :repo_branch, :embedded_dsc_modules, :update_versions] do |t, args|
 
     dsc_module_path       = args[:dsc_module_path] || default_dsc_module_path
-    central_repo_url      = args[:central_repo_url] || dsc_central_repo_url
-    repo_branch           = args[:repo_branch] || dsc_central_repo_branch
-    embedded_posh_modules = args[:embedded_posh_modules].nil? ? embedded_posh_modules : args[:embedded_posh_modules].to_bool
-    update_versions       = (args[:update_versions] || 'false').to_bool
 
     if args[:dsc_module_path]
       Rake::Task['dsc:module:skeleton'].invoke(dsc_module_path)
@@ -66,15 +46,18 @@ namespace :dsc do
       Rake::Task['dsc:resources:base'].invoke()
     end
 
-    # TODO
-    Rake::Task['dsc:resources:import'].invoke(
-      central_repo_url,
-      repo_branch,
-      update_versions,
+    repositories.each do |repository|
+      Rake::Task['dsc:resources:import'].invoke(
+        repository['url'],
+        repository['branch'],
+        repository['release_post_tag'],
+        repository['update_versions'],
       )
-      # ) unless File.exists?(default_dsc_resources_path)
+      # reenable this task, otherwise it will be ignored for a next run
+      Rake::Task['dsc:resources:import'].reenable
+    end
 
-    Rake::Task['dsc:resources:embed'].invoke(dsc_module_path) if embedded_posh_modules
+    Rake::Task['dsc:resources:embed'].invoke(dsc_module_path) if embedded_dsc_modules
     Rake::Task['dsc:types:clean'].invoke(dsc_module_path)
     Rake::Task['dsc:types:build'].invoke(dsc_module_path)
     Rake::Task['dsc:types:document'].invoke(dsc_module_path)
@@ -108,16 +91,15 @@ Default values:
   dsc_resources_path: #{default_dsc_resources_path}
 eod
 
-    task :import, [:central_repo_url, :repo_branch, :update_versions] do |t, args|
-      dsc_resources_path = args[:dsc_resources_path] || default_dsc_resources_path
-      dsc_resources_path = File.expand_path(dsc_resources_path)
+    task :import, [:central_repo_url, :repo_branch, :release_post_tag, :update_versions] do |t, args|
+      dsc_resources_path     = File.expand_path(args[:dsc_resources_path] || default_dsc_resources_path)
       dsc_resources_path_tmp = "#{dsc_resources_path}_tmp"
-      update_versions = args[:update_versions] ? args[:update_versions] :  false
+      central_repo_url       = args[:central_repo_url]
+      repo_branch            = args[:repo_branch]
+      release_post_tag       = args[:release_post_tag] || nil
+      update_versions        = args[:update_versions] ? args[:update_versions] :  false
 
-      central_repo_url      = args[:central_repo_url]
-      repo_branch           = args[:repo_branch]
-
-      is_custom_resource = (dsc_central_repo_url != central_repo_url)
+      is_custom_resource = (central_repo_url != 'https://github.com/msutter/DscResources.git')
 
       puts "Downloading and Importing #{item_name}"
 
@@ -171,7 +153,7 @@ eod
       resource_tags = {}
       resource_tags = YAML::load_file("#{dsc_resources_file}") if File.exist? dsc_resources_file
 
-      if !is_custom_resource
+      if release_post_tag
         puts "Getting latest release tags for DSC resources..."
         submodules.collect {|submodule| "#{dsc_resources_path_tmp}/#{submodule[:path]}"}.each do |submodule_path|
           dsc_resource_name = Pathname.new(submodule_path).basename
@@ -184,12 +166,15 @@ eod
             # we should explore pushing this out out to a method where we can
             # clean up the tags that may have prerelease versions in them
             # similar to what was done in the Chocolatey module
-            versions = tags_raw.scan(/(\S+)\-PSGallery/).map { | ver | Gem::Version.new(ver[0]) }
+
+            post_regex = Regexp.quote(release_post_tag)
+            version_regex = Regexp.new "(\\S+)#{post_regex}"
+            versions = tags_raw.scan(version_regex).map { | ver | Gem::Version.new(ver[0]) }
             if versions.empty?
-              raise "#{dsc_resource_name} does not have any '*-PSGallery' tags. Appears it has not been released yet. Tags found #{tags_raw.to_s}"
+              raise "#{dsc_resource_name} does not have any '*#{release_post_tag}' tags. Appears it has not been released yet. Tags found #{tags_raw.to_s}"
             end
 
-            latest_version = versions.max.to_s + "-PSGallery"
+            latest_version = versions.max.to_s + "#{release_post_tag}"
             tracked_version = resource_tags["#{dsc_resource_name}"]
 
             update_version = tracked_version.nil? ? true : update_versions
@@ -203,8 +188,8 @@ eod
 
             # If the checkout_version is not a standard PSGallery tag, a git fetch
             # is required before a git checkout e.g. for commits or non-default branch names
-            if !(checkout_version =~ /-PSGallery/)
-              puts "#{checkout_version} is not a PSGallery tag. Fetching from git remote"
+            if !(checkout_version =~ /#{post_regex}/)
+              puts "#{checkout_version} is not a #{release_post_tag} tag. Fetching from git remote"
               sh "git fetch"
             end
 
@@ -286,7 +271,7 @@ eod
     task :build, [:module_path] do |t, args|
       module_path = args[:module_path] || default_dsc_module_path
       m = Dsc::Manager.new
-      m.dsc_modules_embedded = embedded_posh_modules
+      m.dsc_modules_embedded = embedded_dsc_modules
       wait_for_resources = Dir["#{module_path}/**/MSFT_WaitFor*"]
       fail "MSFT_WaitFor* resources found - aborting type building! Please remove the following MSFT_WaitFor* DSC Resources and run the build again.\n\n#{wait_for_resources}\n" if !wait_for_resources.empty?
       m.target_module_path = module_path

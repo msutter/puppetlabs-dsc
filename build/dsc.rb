@@ -27,6 +27,4 @@ require "#{LIB_PATH}/dsc/psmodule"
 require "#{LIB_PATH}/dsc/manager"
 
 module Dsc
-
-
 end
