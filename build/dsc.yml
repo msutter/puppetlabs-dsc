@@ -1,12 +1,4 @@
 ---
-# central repository for PowerShell Desired State Configuration (DSC) resources
-# defaults
-#   url: 'https://github.com/PowerShell/DscResources.git'
-#   branch: 'master'
-#   dsc_folders:
-#     - 'dscresources'
-#     - 'xDscResources'
-
 repositories:
   - name: DSCResourceKit
     url: 'https://github.com/msutter/DscResources.git'
