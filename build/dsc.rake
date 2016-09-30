@@ -57,8 +57,8 @@ namespace :dsc do
     dsc_module_path       = args[:dsc_module_path] || default_dsc_module_path
     central_repo_url      = args[:central_repo_url] || dsc_central_repo_url
     repo_branch           = args[:repo_branch] || dsc_central_repo_branch
+    embedded_posh_modules = args[:embedded_posh_modules].nil? ? embedded_posh_modules : args[:embedded_posh_modules].to_bool
     update_versions       = (args[:update_versions] || 'false').to_bool
-    embedded_posh_modules = (args[:embedded_posh_modules] || 'true').to_bool
 
     if args[:dsc_module_path]
       Rake::Task['dsc:module:skeleton'].invoke(dsc_module_path)
@@ -282,6 +282,7 @@ eod
     task :build, [:module_path] do |t, args|
       module_path = args[:module_path] || default_dsc_module_path
       m = Dsc::Manager.new
+      m.dsc_modules_embedded = embedded_posh_modules
       wait_for_resources = Dir["#{module_path}/**/MSFT_WaitFor*"]
       fail "MSFT_WaitFor* resources found - aborting type building! Please remove the following MSFT_WaitFor* DSC Resources and run the build again.\n\n#{wait_for_resources}\n" if !wait_for_resources.empty?
       m.target_module_path = module_path

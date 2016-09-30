@@ -3,10 +3,10 @@ module Dsc
 
     attr_accessor :resource_cim_class
 
-    def initialize(mof_class, mof_path)
+    def initialize(mof_class, mof_path, embedded)
       @resource_mof_path   = mof_path
       @resource_cim_class  = mof_class
-      @embedded            = true
+      @embedded            = embedded
       @name                = nil
       @friendlyname        = nil
       @properties          = nil

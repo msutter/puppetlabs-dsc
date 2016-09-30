@@ -1,7 +1,7 @@
 module Dsc
   class Manager
 
-    attr_accessor :target_module_path
+    attr_accessor :target_module_path, :dsc_modules_embedded
 
     def initialize
       @dsc_lib_path             = Pathname.new(__FILE__).dirname
@@ -13,6 +13,7 @@ module Dsc
       @import_folder            = "#{@module_path}/import"
       @dsc_modules_folder       = "#{@import_folder}/dsc_resources"
       @dmtf_mof_folder          = "#{@module_path}/build/vendor/dmtf_mof"
+      @dsc_modules_embedded     = true
 
       @type_template_file       = "#{@dsc_lib_path}/templates/dsc_type.rb.erb"
       @type_spec_template_file  = "#{@dsc_lib_path}/templates/dsc_type_spec.rb.erb"
@@ -122,7 +123,7 @@ module Dsc
       unless @resources
         dsc_resources = []
         cim_classes_with_path.select{|cc| cc[:klass].superclass == "OMI_BaseResource" }.each do |cim_class_with_path|
-          dsc_resources << Dsc::Resource.new(cim_class_with_path[:klass], cim_class_with_path[:path])
+          dsc_resources << Dsc::Resource.new(cim_class_with_path[:klass], cim_class_with_path[:path], @dsc_modules_embedded)
         end
         @resources = dsc_resources
       end

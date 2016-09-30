@@ -77,10 +77,10 @@ Puppet::Type.newtype(:dsc_<%= resource.friendlyname.downcase %>) do
   def dscmeta_resource_friendly_name; '<%= resource.friendlyname %>' end
   def dscmeta_resource_name; '<%= resource.name %>' end
   def dscmeta_module_name; '<%= resource.ps_module.name %>' end
-  def dscmeta_module_embedded; <%= resource.embedded %> end
 <%  if resource.ps_module.name != 'PSDesiredStateConfiguration' -%>
   def dscmeta_module_version; '<%= resource.ps_module.version %>' end
 <%  end -%>
+  def dscmeta_module_embedded; <%= resource.embedded %> end
 
   newparam(:name, :namevar => true ) do
   end
