@@ -14,7 +14,7 @@ repositories:
     release_post_tag: '-PSGallery'
     update_versions: true
 
-  - name: Proget
+  - name: scProget
     url: 'https://gitlab.swisscloud.io/powershell/scproget.git'
     branch: 'master'
     update_versions: true
