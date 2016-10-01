@@ -4,19 +4,19 @@ repositories:
     url: 'https://github.com/msutter/DscResources.git'
     branch: 'build_test'
     release_post_tag: '-PSGallery'
-    update_versions: true
+    update_versions: false
 
-  - name: scProget
+  - name: scproget
     url: 'https://gitlab.swisscloud.io/powershell/scproget.git'
     branch: 'master'
-    update_versions: true
+    update_versions: false
 
 # blacklisted DSC modules
 # default: empty array
 blacklist:
-  - xChrome
   - xDSCResourceDesigner
   - xDscDiagnostics
+  - xChrome
   - xFirefox
   - xSafeHarbor
   - xSystemSecurity

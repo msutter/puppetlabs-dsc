@@ -97,7 +97,7 @@ eod
       central_repo_url       = args[:central_repo_url]
       repo_branch            = args[:repo_branch]
       release_post_tag       = args[:release_post_tag] || nil
-      update_versions        = args[:update_versions] ? args[:update_versions] :  false
+      update_versions        = args[:update_versions].nil? ? false : args[:update_versions]
 
       is_custom_resource = (central_repo_url != 'https://github.com/msutter/DscResources.git')
 
@@ -153,49 +153,57 @@ eod
       resource_tags = {}
       resource_tags = YAML::load_file("#{dsc_resources_file}") if File.exist? dsc_resources_file
 
-      if release_post_tag
-        puts "Getting latest release tags for DSC resources..."
-        submodules.collect {|submodule| "#{dsc_resources_path_tmp}/#{submodule[:path]}"}.each do |submodule_path|
-          dsc_resource_name = Pathname.new(submodule_path).basename
-          FileUtils.cd(submodule_path) do
-            # --date-order probably doesn't matter
-            # Requires git version 2.2.0 or higher - https://github.com/git/git/commit/9271095cc5571e306d709ebf8eb7f0a388254d9d
-            tags_raw = %x{ git log --tags --pretty=format:'%D' --simplify-by-decoration --date-order }
+      puts "Getting latest release tags for DSC resources..."
+      submodules.collect {|submodule| "#{dsc_resources_path_tmp}/#{submodule[:path]}"}.each do |submodule_path|
+        FileUtils.cd(submodule_path) do
+          dsc_resource_name = %x{ git config --get remote.origin.url }.split('/').last.split('.').first.chomp
+          # --date-order probably doesn't matter
+          # Requires git version 2.2.0 or higher - https://github.com/git/git/commit/9271095cc5571e306d709ebf8eb7f0a388254d9d
+          tags_raw = %x{ git log --tags --pretty=format:'%D' --simplify-by-decoration --date-order }
+          tags = tags_raw.scan(/^tag: .*/)
 
-            # If the conversion of string to version starts to result in errors,
-            # we should explore pushing this out out to a method where we can
-            # clean up the tags that may have prerelease versions in them
-            # similar to what was done in the Chocolatey module
-
-            post_regex = Regexp.quote(release_post_tag)
-            version_regex = Regexp.new "(\\S+)#{post_regex}"
-            versions = tags_raw.scan(version_regex).map { | ver | Gem::Version.new(ver[0]) }
-            if versions.empty?
-              raise "#{dsc_resource_name} does not have any '*#{release_post_tag}' tags. Appears it has not been released yet. Tags found #{tags_raw.to_s}"
-            end
-
-            latest_version = versions.max.to_s + "#{release_post_tag}"
-            tracked_version = resource_tags["#{dsc_resource_name}"]
-
-            update_version = tracked_version.nil? ? true : update_versions
-            if update_version
-              puts "Using the latest/available reference of #{latest_version} for #{dsc_resource_name}."
-              checkout_version = latest_version
+          if !tags.empty?
+            if release_post_tag
+              post_regex = Regexp.quote(release_post_tag)
+              version_regex = Regexp.new "(\\S+)#{post_regex}"
+              versions = tags_raw.scan(version_regex).map { | ver | Gem::Version.new(ver[0]) }
+              # If the conversion of string to version starts to result in errors,
+              # we should explore pushing this out out to a method where we can
+              # clean up the tags that may have prerelease versions in them
+              # similar to what was done in the Chocolatey module
+              if versions.empty?
+                raise "#{dsc_resource_name} does not have any '*#{release_post_tag}' tags. Appears it has not been released yet. Tags found #{tags_raw.to_s}"
+              end
+              latest_version = versions.max.to_s + "#{release_post_tag}"
             else
-              puts "Using the specified reference of #{tracked_version} for #{dsc_resource_name}."
-              checkout_version = tracked_version
+              latest_version = versions.max.to_s + "#{release_post_tag}"
             end
-
-            # If the checkout_version is not a standard PSGallery tag, a git fetch
-            # is required before a git checkout e.g. for commits or non-default branch names
-            if !(checkout_version =~ /#{post_regex}/)
-              puts "#{checkout_version} is not a #{release_post_tag} tag. Fetching from git remote"
-              sh "git fetch"
-            end
-
-            sh "git checkout #{checkout_version}"
-            resource_tags["#{dsc_resource_name}"] = checkout_version.encode("UTF-8")
+          else
+            # Use last commit as ref
+            last_commit = %x{ git log -n 1 --pretty=format:"%H" }
+            latest_version = last_commit
           end
+
+          tracked_version = resource_tags["#{dsc_resource_name}"]
+          update_version = tracked_version.nil? ? true : update_versions
+
+          if update_version
+            puts "Using the latest/available reference of #{latest_version} for #{dsc_resource_name}."
+            checkout_version = latest_version
+          else
+            puts "Using the specified reference of #{tracked_version} for #{dsc_resource_name}."
+            checkout_version = tracked_version
+          end
+
+          # If the checkout_version is not a standard PSGallery tag, a git fetch
+          # is required before a git checkout e.g. for commits or non-default branch names
+          if (checkout_version =~ /#{post_regex}/) == 0
+            puts "#{checkout_version} is not a #{release_post_tag} tag. Fetching from git remote"
+            sh "git fetch"
+          end
+
+          sh "git checkout #{checkout_version}"
+          resource_tags["#{dsc_resource_name}"] = checkout_version.encode("UTF-8")
         end
       end
 
