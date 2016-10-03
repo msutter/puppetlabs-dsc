@@ -1,13 +1,5 @@
 require 'yaml'
 
-class String
-  def to_bool
-    return true   if self == true   || self =~ (/(true|t|yes|y|1)$/i)
-    return false  if self == false  || self =~ (/(false|f|no|n|0)$/i)
-    raise ArgumentError.new("invalid value for Boolean: \"#{self}\"")
-  end
-end
-
 namespace :dsc do
 
   # local pathes
@@ -36,28 +28,40 @@ namespace :dsc do
   embedded_dsc_modules = config.has_key?('embedded_dsc_modules') ? config['embedded_dsc_modules'] : true
 
   desc "Build Resources from Central repository for PowerShell Desired State Configuration"
-  task :build, [:dsc_module_path, :central_repo_url, :repo_branch, :embedded_dsc_modules, :update_versions] do |t, args|
+  # task :build, [:dsc_module_path, :central_repo_url, :repo_branch, :embedded_dsc_modules, :update_versions] do |t, args|
 
-    dsc_module_path       = args[:dsc_module_path] || default_dsc_module_path
+  task :build, [:params] do |t, args|
+    parameters = RakeTaskArguments.parse_arguments(t.name,"\
+[--custom_module_path=<string>] \
+[--central_repo_url=<string>] \
+[--repo_branch=<string>] \
+[--release_tag_prefix=<string>] \
+[--release_tag_suffix=<string>] \
+[--dsc_resource_name=<string>] \
+[--update_versions] \
+[--unembed_powershell_sources] \
+", args[:params].nil? ? ARGV : args[:params])
 
-    if args[:dsc_module_path]
+
+    custom_module_path         = parameters["custom_module_path"]
+    central_repo_url           = parameters["central_repo_url"]
+    repo_branch                = parameters["repo_branch"]
+    release_tag_prefix         = parameters["release_tag_prefix"]
+    release_tag_suffix         = parameters["release_tag_suffix"]
+    update_versions            = parameters["update_versions"]
+    unembed_powershell_sources = parameters["unembed_powershell_sources"]
+
+    dsc_module_path = custom_module_path || default_dsc_module_path
+
+    if parameters[:custom_module_path]
       Rake::Task['dsc:module:skeleton'].invoke(dsc_module_path)
     else
       Rake::Task['dsc:resources:base'].invoke()
     end
 
-    repositories.each do |repository|
-      Rake::Task['dsc:resources:import'].invoke(
-        repository['url'],
-        repository['branch'],
-        repository['release_post_tag'],
-        repository['update_versions'],
-      )
-      # reenable this task, otherwise it will be ignored for a next run
-      Rake::Task['dsc:resources:import'].reenable
-    end
+    RakeTaskArguments.execute_rake('dsc:resources:import', parameters)
 
-    Rake::Task['dsc:resources:embed'].invoke(dsc_module_path) if embedded_dsc_modules
+    Rake::Task['dsc:resources:embed'].invoke(dsc_module_path) unless unembed_powershell_sources
     Rake::Task['dsc:types:clean'].invoke(dsc_module_path)
     Rake::Task['dsc:types:build'].invoke(dsc_module_path)
     Rake::Task['dsc:types:document'].invoke(dsc_module_path)
@@ -91,15 +95,30 @@ Default values:
   dsc_resources_path: #{default_dsc_resources_path}
 eod
 
-    task :import, [:central_repo_url, :repo_branch, :release_post_tag, :update_versions] do |t, args|
-      dsc_resources_path     = File.expand_path(args[:dsc_resources_path] || default_dsc_resources_path)
-      dsc_resources_path_tmp = "#{dsc_resources_path}_tmp"
-      central_repo_url       = args[:central_repo_url]
-      repo_branch            = args[:repo_branch]
-      release_post_tag       = args[:release_post_tag] || nil
-      update_versions        = args[:update_versions].nil? ? false : args[:update_versions]
+    task :import, [:params] do |t, args|
 
-      is_custom_resource = (central_repo_url != 'https://github.com/msutter/DscResources.git')
+      parameters = RakeTaskArguments.parse_arguments(t.name,"\
+[--custom_module_path=<string>] \
+[--central_repo_url=<string>] \
+[--repo_branch=<string>] \
+[--release_tag_prefix=<string>] \
+[--release_tag_suffix=<string>] \
+[--update_versions] \
+[--unembed_powershell_sources] \
+", args[:params].nil? ? ARGV : args[:params])
+
+      # Set defaults if not given
+      custom_module_path         = parameters["custom_module_path"]
+      central_repo_url           = parameters["central_repo_url"]
+      repo_branch                = parameters["repo_branch"]
+      release_tag_prefix         = parameters["release_tag_prefix"]
+      release_tag_suffix         = parameters["release_tag_suffix"]
+      dsc_resource_name         = parameters["dsc_resource_name"]
+      update_versions            = parameters["update_versions"]
+      unembed_dsc_module_sources = parameters["unembed_dsc_module_sources"]
+
+      dsc_resources_path         = default_dsc_resources_path
+      dsc_resources_path_tmp     = "#{dsc_resources_path}_tmp"
 
       puts "Downloading and Importing #{item_name}"
 
@@ -129,7 +148,7 @@ eod
       post_cmd += "git -C #{dsc_resources_path_tmp} submodule update --init" if submodules.any?
       sh post_cmd if !post_cmd.empty?
 
-      # check if this is a repo with submodule. If not we assume that this is a standalone dsc module
+      # Without submodules, we assume that this is a standalone dsc module
       # and process it as it was a submodule.
       if submodules.empty?
         submodules = [{
@@ -161,22 +180,23 @@ eod
           # Requires git version 2.2.0 or higher - https://github.com/git/git/commit/9271095cc5571e306d709ebf8eb7f0a388254d9d
           tags_raw = %x{ git log --tags --pretty=format:'%D' --simplify-by-decoration --date-order }
           tags = tags_raw.scan(/^tag: .*/)
-
           if !tags.empty?
-            if release_post_tag
-              post_regex = Regexp.quote(release_post_tag)
-              version_regex = Regexp.new "(\\S+)#{post_regex}"
+            if release_tag_prefix || release_tag_suffix
+              prefix_regex = release_tag_prefix ? Regexp.quote(release_tag_prefix) : ""
+              suffix_regex = release_tag_suffix ? Regexp.quote(release_tag_suffix) : ""
+              version_regex = Regexp.new "#{prefix_regex}(\\S+)#{suffix_regex}"
               versions = tags_raw.scan(version_regex).map { | ver | Gem::Version.new(ver[0]) }
               # If the conversion of string to version starts to result in errors,
               # we should explore pushing this out out to a method where we can
               # clean up the tags that may have prerelease versions in them
               # similar to what was done in the Chocolatey module
               if versions.empty?
-                raise "#{dsc_resource_name} does not have any '*#{release_post_tag}' tags. Appears it has not been released yet. Tags found #{tags_raw.to_s}"
+                raise "#{dsc_resource_name} does not have any '#{prefix_regex}[*]#{release_tag_suffix}' tags. Appears it has not been released yet. Tags found #{tags_raw.to_s}"
               end
-              latest_version = versions.max.to_s + "#{release_post_tag}"
+              latest_version = "#{release_tag_prefix}" + versions.max.to_s + "#{release_tag_suffix}"
             else
-              latest_version = versions.max.to_s + "#{release_post_tag}"
+              # TODO
+              latest_version = "#{release_tag_prefix}" + versions.max.to_s + "#{release_tag_suffix}"
             end
           else
             # Use last commit as ref
@@ -193,12 +213,6 @@ eod
           else
             puts "Using the specified reference of #{tracked_version} for #{dsc_resource_name}."
             checkout_version = tracked_version
-          end
-
-          # If the checkout_version is not a standard PSGallery tag, a git fetch
-          # is required before a git checkout e.g. for commits or non-default branch names
-          if (checkout_version =~ /#{post_regex}/) == 0
-            puts "#{checkout_version} is not a #{release_post_tag} tag. Fetching from git remote"
             sh "git fetch"
           end
 
