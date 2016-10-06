@@ -1,7 +1,7 @@
 module Dsc
   class Manager
 
-    attr_accessor :target_module_path, :dsc_modules_embedded
+    attr_accessor :target_module_location, :dsc_modules_embedded
 
     def initialize
       @dsc_lib_path             = Pathname.new(__FILE__).dirname
@@ -18,7 +18,7 @@ module Dsc
       @type_template_file       = "#{@dsc_lib_path}/templates/dsc_type.rb.erb"
       @type_spec_template_file  = "#{@dsc_lib_path}/templates/dsc_type_spec.rb.erb"
 
-      @target_module_path       = @module_path
+      @target_module_location   = @module_path
       @puppet_type_subpath      = "lib/puppet/type"
       @puppet_type_spec_subpath = "spec/unit/puppet/type"
 
@@ -156,14 +156,14 @@ module Dsc
         type_spec_template = File.open(@type_spec_template_file, 'r').read
         type_spec_erb = ERB.new(type_spec_template, nil, '-')
         if resource.friendlyname
-          puppet_type_path = "#{@target_module_path}/#{@puppet_type_subpath}"
+          puppet_type_path = "#{@target_module_location}/#{@puppet_type_subpath}"
           FileUtils.mkdir_p(puppet_type_path) unless File.exists?(puppet_type_path)
           File.open("#{puppet_type_path}/dsc_#{resource.friendlyname.downcase}.rb", 'w+') do |file|
             file.write(type_erb.result(binding))
             pn = Pathname.new(file.path).expand_path.relative_path_from(@module_path)
             type_pathes << "Add type - #{pn.to_s}"
           end
-          puppet_type_spec_path = "#{@target_module_path}/#{@puppet_type_spec_subpath}"
+          puppet_type_spec_path = "#{@target_module_location}/#{@puppet_type_spec_subpath}"
           FileUtils.mkdir_p(puppet_type_spec_path) unless File.exists?(puppet_type_spec_path)
           File.open("#{puppet_type_spec_path}/dsc_#{resource.friendlyname.downcase}_spec.rb", 'w+') do |file|
             file.write(type_spec_erb.result(binding))
@@ -215,12 +215,12 @@ module Dsc
     end
 
     def clean_dsc_types
-      puppet_type_path = "#{@target_module_path}/#{@puppet_type_subpath}"
+      puppet_type_path = "#{@target_module_location}/#{@puppet_type_subpath}"
       clean_folder(["#{puppet_type_path}/dsc_*.rb"])
     end
 
     def clean_dsc_type_specs
-      puppet_type_spec_path = "#{@target_module_path}/#{@puppet_type_spec_subpath}"
+      puppet_type_spec_path = "#{@target_module_location}/#{@puppet_type_spec_subpath}"
       clean_folder(["#{puppet_type_spec_path}/dsc_*_spec.rb"])
     end
 
