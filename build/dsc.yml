@@ -20,4 +20,4 @@ blacklist:
   # https://github.com/PowerShell/DscResources/blob/8e447cd90da1f6e127c8eff805c4d30ad10e00e4/HighQualityModuleGuidelines.md
   - OfficeOnlineServerDsc
   - SharePointDsc
-  - SytemLocaleDsc
+  - SystemLocaleDsc
