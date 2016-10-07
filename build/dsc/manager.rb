@@ -1,7 +1,13 @@
 module Dsc
   class Manager
 
-    attr_accessor :target_module_location, :dsc_modules_embedded
+    attr_accessor :module_path,
+    :target_module_location,
+    :dsc_modules_embedded,
+    :dsc_modules_folder,
+    :dsc_resources_file,
+    :puppet_type_subpath,
+    :puppet_type_spec_subpath
 
     def initialize
       @dsc_lib_path             = Pathname.new(__FILE__).dirname
@@ -12,6 +18,7 @@ module Dsc
 
       @import_folder            = "#{@module_path}/import"
       @dsc_modules_folder       = "#{@import_folder}/dsc_resources"
+      @dsc_resources_file       = "#{@module_path}/dsc_resource_release_tags.yml"
       @dmtf_mof_folder          = "#{@module_path}/build/vendor/dmtf_mof"
       @dsc_modules_embedded     = true
 
@@ -69,6 +76,60 @@ module Dsc
         'real64'   => '64.000',
       }
 
+    end
+
+    def ensure_versions(submodules, update_versions, release_tag_prefix, release_tag_suffix)
+      dsc_resources_path_tmp = @dsc_modules_folder + "_tmp"
+      resource_tags = {}
+      resource_tags = YAML::load_file("#{@dsc_resources_file}") if File.exist? @dsc_resources_file
+      submodules.collect {|submodule| "#{dsc_resources_path_tmp}/#{submodule[:path]}"}.each do |submodule_path|
+        FileUtils.cd(submodule_path) do
+          dsc_resource_name = %x{ git config --get remote.origin.url }.split('/').last.split('.').first.chomp
+          # --date-order probably doesn't matter
+          # Requires git version 2.2.0 or higher - https://github.com/git/git/commit/9271095cc5571e306d709ebf8eb7f0a388254d9d
+          tags_raw = %x{ git log --tags --pretty=format:'%D' --simplify-by-decoration --date-order }
+          tags = tags_raw.scan(/^tag: .*/)
+          if !tags.empty?
+            if release_tag_prefix || release_tag_suffix
+              prefix_regex = release_tag_prefix ? Regexp.quote(release_tag_prefix) : ""
+              suffix_regex = release_tag_suffix ? Regexp.quote(release_tag_suffix) : ""
+              version_regex = Regexp.new "#{prefix_regex}(\\S+)#{suffix_regex}"
+              versions = tags_raw.scan(version_regex).map { | ver | Gem::Version.new(ver[0]) }
+              # If the conversion of string to version starts to result in errors,
+              # we should explore pushing this out out to a method where we can
+              # clean up the tags that may have prerelease versions in them
+              # similar to what was done in the Chocolatey module
+              if versions.empty?
+                raise "#{dsc_resource_name} does not have any '#{prefix_regex}[*]#{release_tag_suffix}' tags. Appears it has not been released yet. Tags found #{tags_raw.to_s}"
+              end
+              latest_version = "#{release_tag_prefix}" + versions.max.to_s + "#{release_tag_suffix}"
+            else
+              # TODO
+              latest_version = "#{release_tag_prefix}" + versions.max.to_s + "#{release_tag_suffix}"
+            end
+          else
+            # Use last commit as ref
+            last_commit = %x{ git log -n 1 --pretty=format:"%H" }
+            latest_version = last_commit
+          end
+
+          tracked_version = resource_tags["#{dsc_resource_name}"]
+          update_version = tracked_version.nil? ? true : update_versions
+
+          if update_version
+            puts "Using the latest/available reference of #{latest_version} for #{dsc_resource_name}."
+            checkout_version = latest_version
+          else
+            puts "Using the specified reference of #{tracked_version} for #{dsc_resource_name}."
+            checkout_version = tracked_version
+            %x(git fetch)
+          end
+
+          %x(git checkout #{checkout_version})
+          resource_tags["#{dsc_resource_name}"] = checkout_version.encode("UTF-8")
+        end
+      end
+      File.open("#{@dsc_resources_file}", 'w+') {|f| f.write resource_tags.to_yaml }
     end
 
     def get_spec_test_value(type)

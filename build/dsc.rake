@@ -1,48 +1,74 @@
 require 'yaml'
+require 'docopt'
 
+# make task description accessible within the task
+Rake::TaskManager.record_task_metadata = true
+
+###############################################################################
 namespace :dsc do
-
   # local pathes
   dsc_build_path  = Pathname.new(__FILE__).dirname
   dsc_repo_url    = %x(git config --get remote.origin.url).strip
   dsc_repo_branch = %x(git rev-parse --abbrev-ref HEAD).strip
+  dsc_manager = Dsc::Manager.new
 
   # config
   config_file = "#{dsc_build_path}/dsc.yml"
   if File.exists?(config_file)
     config = YAML::load(File.open("#{dsc_build_path}/dsc.yml"))
-    puts "Using values from config file #{config_file}"
   else
-    puts "Config file #{config_file} not found"
+    config = {}
   end
 
-  # defaults
-  default_dsc_module_path    = dsc_build_path.parent
-  default_dsc_resources_path = "#{default_dsc_module_path}/import/dsc_resources"
-  default_types_path         = "#{default_dsc_module_path}/lib/puppet/type"
-  default_type_specs_path    = "#{default_dsc_module_path}/spec/unit/puppet/type"
-  dsc_resources_file         = "#{default_dsc_module_path}/dsc_resource_release_tags.yml"
+  default_dsc_module_path    = dsc_manager.module_path
+  default_dsc_resources_path = dsc_manager.dsc_modules_folder
+  dsc_resources_file         = dsc_manager.dsc_resources_file
+  default_types_path         = "#{default_dsc_module_path}#{dsc_manager.puppet_type_subpath}"
+  default_type_specs_path    = "#{default_dsc_module_path}#{dsc_manager.puppet_type_spec_subpath}"
 
   default_repository = config.has_key?('default_source_repository') ? config['default_source_repository'] : {}
   blacklist = config.has_key?('blacklist') ? config['blacklist'] : []
 
-  desc "Build Resources from Central repository for PowerShell Desired State Configuration"
-  # task :build, [:dsc_module_path, :source_repo_url, :repo_branch, :embedded_dsc_modules, :update_versions] do |t, args|
+  desc <<-DOCOPT
+Build Puppet types from DSC Resources
 
-  task :build, [:params] do |t, args|
-    parameters = RakeTaskArguments.parse_arguments(t.name,"\
-[--target_module_location=<string>] \
-[--source_repo_url=<string> | --source_location=<string>] \
-[--repo_branch=<string>] \
-[--release_tag_prefix=<string>] \
-[--release_tag_suffix=<string>] \
-[--dsc_resource_name=<string>] \
+Usage:
+  dsc:build -- \
+[--target_module_location=PATH] \
+[--source_repo_url=URL | --source_location=PATH] \
+[--repo_branch=BRANCH] \
+[--release_tag_prefix=PREFIX] \
+[--release_tag_suffix=SUFFIX] \
 [--update_versions] \
 [--unembed_powershell_sources] \
-[--base_only] \
-", args[:params].nil? ? ARGV : args[:params])
+[--base_only]
 
-    # setting defaults
+  dsc:build -- --help
+
+Options:
+  --target_module_location=PATH   path of the generated module
+                                  this will build an external module
+  --source_repo_url=URL           source Git repo url
+  --repo_branch=BRANCH            source Git repo branch
+  --release_tag_prefix=PREFIX     string prefixing the tag version
+  --release_tag_suffix=SUFFIX     string suffixing the tag version
+  --source_location=PATH          source location (local path)
+                                  can be the path of a locally cloned git repo
+  --update_versions               should the last version be used
+  --unembed_powershell_sources    should the powershell sources be removed
+                                  per default the sources are embedded
+  --base_only                     only build base resources (skips the import)
+DOCOPT
+  task :build, [:params] do |t, args|
+
+    # Generate parameters and values from description and args
+    parameters = RakeTaskArguments.parse_description(
+      t.name,
+      t.full_comment,
+      args[:params].nil? ? ARGV : args[:params]
+    )
+
+    # Setting params from config file
     parameters["source_repo_url"] = parameters["source_repo_url"] ||
       default_repository['url'] unless parameters["source_location"]
     parameters["repo_branch"] = parameters["repo_branch"] ||
@@ -54,70 +80,131 @@ namespace :dsc do
     parameters["unembed_powershell_sources"] = parameters["unembed_powershell_sources"].nil? ?
       default_repository['unembed_powershell_sources'] : parameters["unembed_powershell_sources"]
 
-    dsc_module_path = parameters["target_module_location"] || default_dsc_module_path
-
     if parameters["target_module_location"]
-      Rake::Task['dsc:module:skeleton'].invoke(dsc_module_path)
+      RakeTaskArguments.execute_rake('dsc:module:skeleton', parameters.filter(
+        :target_module_location,
+        )
+      )
     else
-      Rake::Task['dsc:resources:base'].invoke()
+      RakeTaskArguments.execute_rake('dsc:resources:base', {})
     end
 
     if (parameters["source_repo_url"] || parameters["source_location"]) && !parameters["base_only"]
       RakeTaskArguments.execute_rake('dsc:resources:import', parameters)
     end
 
-    Rake::Task['dsc:resources:embed'].invoke(dsc_module_path) unless parameters["unembed_powershell_sources"]
+    RakeTaskArguments.execute_rake('dsc:resources:embed', parameters.filter(
+      :target_module_location
+      )
+    ) unless parameters["unembed_powershell_sources"]
 
-    Rake::Task['dsc:types:clean'].invoke(dsc_module_path)
+    RakeTaskArguments.execute_rake('dsc:types:clean', parameters.filter(
+      :target_module_location
+      )
+    )
 
-    types_build_params = parameters.select do |k, v|
-      k == 'target_module_location' || k == 'unembed_powershell_sources'
-    end
+    RakeTaskArguments.execute_rake('dsc:types:build', parameters.filter(
+      :target_module_location,
+      :unembed_powershell_sources
+      )
+    )
 
-    RakeTaskArguments.execute_rake('dsc:types:build', types_build_params)
+    RakeTaskArguments.execute_rake('dsc:types:document', parameters.filter(
+      :target_module_location
+      )
+    )
 
-    Rake::Task['dsc:types:document'].invoke(dsc_module_path)
   end
 
-  desc "Cleanup all"
-  task :clean, [:dsc_module_path] do |t, args|
-    dsc_module_path = args[:dsc_module_path] || default_dsc_module_path
-    Rake::Task['dsc:types:clean'].invoke(dsc_module_path)
-    Rake::Task['dsc:resources:clean'].invoke(dsc_module_path)
+desc <<-DOCOPT
+Clean Puppet types and DSC Resources
+
+Usage:
+  dsc:clean -- \
+[--target_module_location=PATH] \
+
+  dsc:clean -- --help
+
+Options:
+  --target_module_location=PATH   path of the generated module
+
+DOCOPT
+  task :clean, [:params] do |t, args|
+
+    # Generate parameters and values from description and args
+    parameters = RakeTaskArguments.parse_description(
+      t.name,
+      t.full_comment,
+      args[:params].nil? ? ARGV : args[:params]
+    )
+
+    RakeTaskArguments.execute_rake('dsc:types:clean', parameters.filter(
+      :target_module_location
+      )
+    )
+
+    RakeTaskArguments.execute_rake('dsc:resources:clean', parameters.filter(
+      :target_module_location
+      )
+    )
   end
 
+  #############################################################################
   namespace :resources do
-
     item_name = 'DSC Powershell modules files'
 
-    desc <<-eod
-    Base #{item_name}
-eod
 
+    desc <<-DOCOPT
+Include base DSC resources (the windows native resources)
+
+Usage:
+  dsc:base
+  dsc:base -- --help
+
+DOCOPT
     task :base do |t|
       puts "Copying vendored base resources from #{default_dsc_module_path}/build/vendor/wmf_dsc_resources to #{default_dsc_resources_path}"
       FileUtils.mkdir_p(default_dsc_resources_path) unless File.directory?(default_dsc_resources_path)
       FileUtils.cp_r "#{default_dsc_module_path}/build/vendor/wmf_dsc_resources/.", "#{default_dsc_resources_path}/"
     end
 
-    desc <<-eod
-    Import #{item_name}
+  desc <<-DOCOPT
+Import #{item_name}
 
-Default values:
-  dsc_resources_path: #{default_dsc_resources_path}
-eod
-
-    task :import, [:params] do |t, args|
-
-      parameters = RakeTaskArguments.parse_arguments(t.name,"\
-[--target_module_location=<string>] \
-[--source_repo_url=<string> | --source_location=<string>] \
-[--repo_branch=<string>] \
-[--release_tag_prefix=<string>] \
-[--release_tag_suffix=<string>] \
+Usage:
+  dsc:resources:import -- \
+[--target_module_location=PATH] \
+[--source_repo_url=URL | --source_location=PATH] \
+[--repo_branch=BRANCH] \
+[--release_tag_prefix=PREFIX] \
+[--release_tag_suffix=SUFFIX] \
 [--update_versions] \
 [--unembed_powershell_sources] \
-", args[:params].nil? ? ARGV : args[:params])
+
+  dsc:resources:import -- --help
+
+Options:
+  --target_module_location=PATH   path of the generated module
+                                  this will build an external module
+  --source_repo_url=URL           source Git repo url
+  --repo_branch=BRANCH            source Git repo branch
+  --release_tag_prefix=PREFIX     string prefixing the tag version
+  --release_tag_suffix=SUFFIX     string suffixing the tag version
+  --source_location=PATH          source location (local path)
+                                  can be the path of a locally cloned git repo
+  --update_versions               should the last version be used
+  --unembed_powershell_sources    should the powershell sources be removed
+                                  per default the sources are embedded
+
+DOCOPT
+    task :import, [:params] do |t, args|
+
+      # Generate parameters and values from description and args
+      parameters = RakeTaskArguments.parse_description(
+        t.name,
+        t.full_comment,
+        args[:params].nil? ? ARGV : args[:params]
+      )
 
       target_module_location     = parameters["target_module_location"]
       source_repo_url            = parameters["source_repo_url"]
@@ -125,9 +212,7 @@ eod
       repo_branch                = parameters["repo_branch"] || 'master'
       release_tag_prefix         = parameters["release_tag_prefix"]
       release_tag_suffix         = parameters["release_tag_suffix"]
-      dsc_resource_name          = parameters["dsc_resource_name"]
       update_versions            = parameters["update_versions"]
-      unembed_powershell_sources = parameters["unembed_powershell_sources"]
 
       dsc_resources_path         = default_dsc_resources_path
       dsc_resources_path_tmp     = "#{dsc_resources_path}_tmp"
@@ -179,6 +264,7 @@ eod
 
         puts "Cleaning out black-listed DSC resources: #{blacklist}"
         blacklisted_submodules = submodules.select { |sm| blacklist.include?(sm[:name])}
+
         # remove blacklisted modules form submodules array for further processing
         submodules = submodules - blacklisted_submodules
 
@@ -187,58 +273,9 @@ eod
             FileUtils.rm_rf("#{dsc_resources_path_tmp}/#{bsm[:path]}")
         end
 
-        resource_tags = {}
-        resource_tags = YAML::load_file("#{dsc_resources_file}") if File.exist? dsc_resources_file
+		puts "Setting release tags/commit for DSC resources..."
+        dsc_manager.ensure_versions(submodules, update_versions, release_tag_prefix, release_tag_suffix)
 
-        puts "Getting latest release tags for DSC resources..."
-        submodules.collect {|submodule| "#{dsc_resources_path_tmp}/#{submodule[:path]}"}.each do |submodule_path|
-          FileUtils.cd(submodule_path) do
-            dsc_resource_name = %x{ git config --get remote.origin.url }.split('/').last.split('.').first.chomp
-            # --date-order probably doesn't matter
-            # Requires git version 2.2.0 or higher - https://github.com/git/git/commit/9271095cc5571e306d709ebf8eb7f0a388254d9d
-            tags_raw = %x{ git log --tags --pretty=format:'%D' --simplify-by-decoration --date-order }
-            tags = tags_raw.scan(/^tag: .*/)
-            if !tags.empty?
-              if release_tag_prefix || release_tag_suffix
-                prefix_regex = release_tag_prefix ? Regexp.quote(release_tag_prefix) : ""
-                suffix_regex = release_tag_suffix ? Regexp.quote(release_tag_suffix) : ""
-                version_regex = Regexp.new "#{prefix_regex}(\\S+)#{suffix_regex}"
-                versions = tags_raw.scan(version_regex).map { | ver | Gem::Version.new(ver[0]) }
-                # If the conversion of string to version starts to result in errors,
-                # we should explore pushing this out out to a method where we can
-                # clean up the tags that may have prerelease versions in them
-                # similar to what was done in the Chocolatey module
-                if versions.empty?
-                  raise "#{dsc_resource_name} does not have any '#{prefix_regex}[*]#{release_tag_suffix}' tags. Appears it has not been released yet. Tags found #{tags_raw.to_s}"
-                end
-                latest_version = "#{release_tag_prefix}" + versions.max.to_s + "#{release_tag_suffix}"
-              else
-                # TODO
-                latest_version = "#{release_tag_prefix}" + versions.max.to_s + "#{release_tag_suffix}"
-              end
-            else
-              # Use last commit as ref
-              last_commit = %x{ git log -n 1 --pretty=format:"%H" }
-              latest_version = last_commit
-            end
-
-            tracked_version = resource_tags["#{dsc_resource_name}"]
-            update_version = tracked_version.nil? ? true : update_versions
-
-            if update_version
-              puts "Using the latest/available reference of #{latest_version} for #{dsc_resource_name}."
-              checkout_version = latest_version
-            else
-              puts "Using the specified reference of #{tracked_version} for #{dsc_resource_name}."
-              checkout_version = tracked_version
-              sh "git fetch"
-            end
-
-            sh "git checkout #{checkout_version}"
-            resource_tags["#{dsc_resource_name}"] = checkout_version.encode("UTF-8")
-          end
-        end
-        File.open("#{dsc_resources_file}", 'w+') {|f| f.write resource_tags.to_yaml }
       else
         # Process a directory which is not a git repository
         submodules = [{
@@ -274,15 +311,28 @@ eod
       FileUtils.rm_rf "#{dsc_resources_path_tmp}"
     end
 
-    desc <<-eod
-    Embed #{item_name}
+    desc <<-DOCOPT
+Embed #{item_name}
 
-Default values:
-  dsc_resources_path: #{default_dsc_resources_path}"
-eod
+Usage:
+  dsc:resources:embed -- \
+[--target_module_location=PATH] \
 
-    task :embed, [:module_path] do |t, args|
-      module_path = args[:module_path] || default_dsc_module_path
+  dsc:resources:embed -- --help
+
+Options:
+  --target_module_location=PATH   path of the generated module
+
+DOCOPT
+      task :embed, [:params] do |t, args|
+      # Generate parameters and values from description and args
+      parameters = RakeTaskArguments.parse_description(
+        t.name,
+        t.full_comment,
+        args[:params].nil? ? ARGV : args[:params]
+      )
+
+      module_path = parameters["target_module_location"] || default_dsc_module_path
       vendor_dsc_resources_path = "#{module_path}/lib/puppet_x/dsc_resources"
       puts "Copying vendored resources from '#{default_dsc_resources_path}/.' to '#{vendor_dsc_resources_path}'"
       # make sure dsc_resources folder exists in puppetx
@@ -294,15 +344,29 @@ eod
       FileUtils.cp_r resources_list, vendor_dsc_resources_path, :remove_destination => true
     end
 
-    desc <<-eod
-    Cleanup #{item_name}
+    desc <<-DOCOPT
+Cleanup #{item_name}
 
-Default values:
-  dsc_resources_path: #{default_dsc_resources_path}"
-eod
+Usage:
+  dsc:clean -- \
+[--target_module_location=PATH] \
 
-    task :clean, [:module_path] do |t, args|
-      module_path = args[:module_path] || default_dsc_module_path
+  dsc:clean -- --help
+
+Options:
+  --target_module_location=PATH   path of the generated module
+
+DOCOPT
+    task :clean, [:params] do |t, args|
+
+      # Generate parameters and values from description and args
+      parameters = RakeTaskArguments.parse_description(
+        t.name,
+        t.full_comment,
+        args[:params].nil? ? ARGV : args[:params]
+      )
+
+      module_path = parameters["target_module_location"] || default_dsc_module_path
       vendor_dsc_resources_path = "#{module_path}/lib/puppet_x/dsc_resources"
       puts "Cleaning #{item_name}"
       FileUtils.rm_rf "#{default_dsc_module_path}/import"
@@ -311,60 +375,133 @@ eod
 
   end
 
+  #############################################################################
   namespace :types do
-
     item_name = 'DSC types and type specs'
 
-    desc "Build #{item_name}"
+    desc <<-DOCOPT
+Build #{item_name}
 
-    task :build, [:params] do |t, args|
-    parameters = RakeTaskArguments.parse_arguments(t.name,"\
-[--target_module_location=<string>] \
+Usage:
+  dsc:types:build -- \
+[--target_module_location=PATH] \
 [--unembed_powershell_sources] \
-", args[:params].nil? ? ARGV : args[:params])
+
+  dsc:types:build -- --help
+
+Options:
+  --target_module_location=PATH   path of the generated module
+  --unembed_powershell_sources    should the powershell sources be removed
+                                  per default the sources are embedded
+DOCOPT
+    task :build, [:params] do |t, args|
+
+      # Generate parameters and values from description and args
+      parameters = RakeTaskArguments.parse_description(
+        t.name,
+        t.full_comment,
+        args[:params].nil? ? ARGV : args[:params]
+      )
 
       module_path = parameters["target_module_location"] || default_dsc_module_path
       unembed_powershell_sources = parameters["unembed_powershell_sources"]
 
-      m = Dsc::Manager.new
-      m.dsc_modules_embedded = !unembed_powershell_sources
+      dsc_manager.dsc_modules_embedded = !unembed_powershell_sources
       wait_for_resources = Dir["#{module_path}/**/MSFT_WaitFor*"]
       fail "MSFT_WaitFor* resources found - aborting type building! Please remove the following MSFT_WaitFor* DSC Resources and run the build again.\n\n#{wait_for_resources}\n" if !wait_for_resources.empty?
-      m.target_module_location = module_path
-      msgs = m.build_dsc_types
+      dsc_manager.target_module_location = module_path
+      msgs = dsc_manager.build_dsc_types
       msgs.each{|m| puts "#{m}"}
     end
 
-    desc "Document #{item_name}"
-    task :document, [:module_path] do |t, args|
-      module_path = args[:module_path] || default_dsc_module_path
-      m = Dsc::Manager.new
-      m.target_module_location = module_path
-      m.document_types("#{module_path}/types.md", m.get_dsc_types)
+    desc <<-DOCOPT
+Document #{item_name}
+
+Usage:
+  dsc:types:document -- \
+[--target_module_location=PATH] \
+
+  dsc:types:document -- --help
+
+Options:
+  --target_module_location=PATH   path of the generated module
+
+DOCOPT
+    task :document, [:params] do |t, args|
+
+      # Generate parameters and values from description and args
+      parameters = RakeTaskArguments.parse_description(
+        t.name,
+        t.full_comment,
+        args[:params].nil? ? ARGV : args[:params]
+      )
+
+      module_path = parameters["target_module_location"] || default_dsc_module_path
+      dsc_manager.target_module_location = module_path
+      dsc_manager.document_types("#{module_path}/types.md", dsc_manager.get_dsc_types)
     end
 
-    desc "Cleanup #{item_name}"
-    task :clean, [:module_path] do |t, args|
-      module_path = args[:module_path] || default_dsc_module_path
+    desc <<-DOCOPT
+Cleanup #{item_name}
+
+Usage:
+  dsc:types:clean -- \
+[--target_module_location=PATH] \
+
+  dsc:types:clean -- --help
+
+Options:
+  --target_module_location=PATH   path of the generated module
+
+DOCOPT
+    task :clean, [:params] do |t, args|
+
+      # Generate parameters and values from description and args
+      parameters = RakeTaskArguments.parse_description(
+        t.name,
+        t.full_comment,
+        args[:params].nil? ? ARGV : args[:params]
+      )
+
+      module_path = parameters["target_module_location"] || default_dsc_module_path
       puts "Cleaning #{item_name}"
-      m = Dsc::Manager.new
-      m.target_module_location = module_path
-      msgs = m.clean_dsc_types
+      dsc_manager.target_module_location = module_path
+      msgs = dsc_manager.clean_dsc_types
       msgs.each{|m| puts "#{m}"}
-      msgs = m.clean_dsc_type_specs
+      msgs = dsc_manager.clean_dsc_type_specs
       msgs.each{|m| puts "#{m}"}
       FileUtils.rm_rf "#{default_dsc_module_path}/types.md"
     end
 
   end
 
+  #############################################################################
   namespace :module do
-
     item_name = 'External DSC module'
 
-    desc "Generate skeleton for #{item_name}"
-    task :skeleton, [:dsc_module_path] do |t, args|
-      dsc_module_path = args[:dsc_module_path] || default_dsc_module_path
+    desc <<-DOCOPT
+Generate skeleton for #{item_name}
+
+Usage:
+  dsc:module:skeleton -- \
+[--target_module_location=PATH] \
+
+  dsc:module:skeleton -- --help
+
+Options:
+  --target_module_location=PATH   path of the generated module
+
+DOCOPT
+    task :skeleton, [:params] do |t, args|
+
+      # Generate parameters and values from description and args
+      parameters = RakeTaskArguments.parse_description(
+        t.name,
+        t.full_comment,
+        args[:params].nil? ? ARGV : args[:params]
+      )
+
+      dsc_module_path = parameters["target_module_location"] || default_dsc_module_path
       module_name = Pathname.new(dsc_module_path).basename.to_s
       ext_module_files = [
         '.gitignore',

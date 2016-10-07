@@ -35,6 +35,19 @@ class String
   end
 end
 
+class Hash
+  def filter(*keys)
+    return self if keys.empty?
+    string_keys = {}
+    keys.collect do |k,v|
+      k.is_a?(Symbol) ? string_keys[k.to_s] = v : string_keys[k] = v
+    end
+    self.select do |hash_key|
+      string_keys.include?(hash_key)
+    end
+  end
+end
+
 # Passing named arguments to Ruby Rake tasks using docopt for data science pipelines
 # more infos on:
 # https://github.com/blueshift-labs/demo_rake_arguments
@@ -45,15 +58,8 @@ end
 # the args actual input that was provided when launching the task and that should be validated.
 # Parsing and validation happens magically by:
 #   Docopt::docopt(doc, {:argv => args})
-
 class RakeTaskArguments
-  def self.parse_arguments(task_name, argument_spec, args)
-    # Set up the docopt string that will be used to pass the input along
-    doc = <<DOCOPT
-    Usage: #{task_name} -- #{argument_spec}
-           #{task_name} -- --help
-DOCOPT
-    # Prepare the return value
+  def self.parse_description(task_name, doc, args)
     arguments = {}
     begin
       # Because the new version of rake passes the -- along in the args variable,
@@ -64,7 +70,6 @@ DOCOPT
         # Store key/value, converting '--key' into 'key' for accessability
         # Per docopt pec, the key '--' contains the actual task name as a value
         # so we label it accordingly
-
         arguments[key == "--" ? 'task_name' : key.gsub('--', '')] = value
       end
     rescue Docopt::Exit => e
@@ -103,4 +108,3 @@ end
 
 module Dsc
 end
-
