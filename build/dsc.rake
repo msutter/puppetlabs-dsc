@@ -1,5 +1,4 @@
 require 'yaml'
-require 'docopt'
 
 # make task description accessible within the task
 Rake::TaskManager.record_task_metadata = true
@@ -67,6 +66,7 @@ DOCOPT
       t.full_comment,
       args[:params].nil? ? ARGV : args[:params]
     )
+
 
     # Setting params from config file
     parameters["source_repo_url"] = parameters["source_repo_url"] ||
@@ -217,6 +217,7 @@ DOCOPT
       dsc_resources_path         = default_dsc_resources_path
       dsc_resources_path_tmp     = "#{dsc_resources_path}_tmp"
 
+
       puts "Importing #{item_name}"
 
       # clone
@@ -273,7 +274,8 @@ DOCOPT
             FileUtils.rm_rf("#{dsc_resources_path_tmp}/#{bsm[:path]}")
         end
 
-		puts "Setting release tags/commit for DSC resources..."
+        puts "Setting release tags/commit for DSC resources..."
+        dsc_manager.target_module_location = target_module_location
         dsc_manager.ensure_versions(submodules, update_versions, release_tag_prefix, release_tag_suffix)
 
       else
