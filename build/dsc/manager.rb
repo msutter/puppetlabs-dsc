@@ -9,32 +9,39 @@ module Dsc
     :puppet_type_subpath,
     :puppet_type_spec_subpath
 
-    def initialize
-      @dsc_lib_path             = Pathname.new(__FILE__).dirname
-      @tools_path               = @dsc_lib_path.parent
-      @module_path              = @tools_path.parent
+    def initialize(target_module_location=nil)
+      @dsc_lib_path              = Pathname.new(__FILE__).dirname
+      @tools_path                = @dsc_lib_path.parent
+      @module_path               = @tools_path.parent
 
-      @base_qualifiers_folder   = "#{@module_path}/build/qualifiers/base"
+      @base_module_name          = @module_path.basename
+      @base_module_repo_url      = %x(git -C #{@module_path} config --get remote.origin.url).strip
+      @base_module_repo_branch   = %x(git -C #{@module_path} rev-parse --abbrev-ref HEAD).strip
 
-      @import_folder            = "#{@module_path}/import"
-      @dsc_modules_folder       = "#{@import_folder}/dsc_resources"
-      @dsc_resources_file       = "#{@module_path}/dsc_resource_release_tags.yml"
-      @dmtf_mof_folder          = "#{@module_path}/build/vendor/dmtf_mof"
-      @dsc_modules_embedded     = true
+      @base_qualifiers_folder    = "#{@module_path}/build/qualifiers/base"
+      @dmtf_mof_folder           = "#{@module_path}/build/vendor/dmtf_mof"
+      @dsc_modules_embedded      = true
 
-      @type_template_file       = "#{@dsc_lib_path}/templates/dsc_type.rb.erb"
-      @type_spec_template_file  = "#{@dsc_lib_path}/templates/dsc_type_spec.rb.erb"
+      @type_template_file        = "#{@dsc_lib_path}/templates/dsc_type.rb.erb"
+      @type_spec_template_file   = "#{@dsc_lib_path}/templates/dsc_type_spec.rb.erb"
 
-      @target_module_location   = @module_path
-      @puppet_type_subpath      = "lib/puppet/type"
-      @puppet_type_spec_subpath = "spec/unit/puppet/type"
+      @target_module_location    = target_module_location ? Pathname.new(target_module_location).realdirpath : @module_path
+      @import_folder             = "#{@target_module_location}/import"
+      @dsc_resources_file        = "#{@target_module_location}/dsc_resource_release_tags.yml"
+      @dsc_document_file         = "#{@target_module_location}/types.md"
+      @vendored_resources_folder = "#{@target_module_location}/lib/puppet_x/dsc_resources"
 
-      @json_content             = nil
-      @resources_hash           = nil
-      @resources                = nil
-      @cim_classes_with_path    = nil
+      @dsc_modules_folder        = "#{@import_folder}/dsc_resources"
 
-      @spec_test_values         = {
+      @puppet_type_subpath       = "lib/puppet/type"
+      @puppet_type_spec_subpath  = "spec/unit/puppet/type"
+
+      @json_content              = nil
+      @resources_hash            = nil
+      @resources                 = nil
+      @cim_classes_with_path     = nil
+
+      @spec_test_values          = {
         'string'   => 'foo',
         'string[]' => ['foo','bar','spec'],
         'MSFT_Credential' => { 'user' => 'user', 'password' => 'password' },
@@ -75,6 +82,115 @@ module Dsc
         'real32'   => '32.000',
         'real64'   => '64.000',
       }
+
+    end
+
+    def resources_embed
+      puts "Copying vendored resources from '#{@dsc_modules_folder}/.' to '#{@vendored_resources_folder}'"
+      # make sure dsc_resources folder exists in puppetx
+      FileUtils.mkdir_p(@vendored_resources_folder) unless File.directory?(@vendored_resources_folder)
+      # exclude the base resources 'PSDesiredStateConfiguration' from the sync
+      resources_list = Dir["#{@dsc_modules_folder}/*"].reject do |file_path|
+        file_path =~ /^#{@dsc_modules_folder}\/PSDesiredStateConfiguration$/
+      end
+      FileUtils.cp_r resources_list, @vendored_resources_folder, :remove_destination => true
+    end
+
+    def resources_clean
+      clean_folder([@import_folder])
+      clean_folder([@vendored_resources_folder])
+    end
+
+    def resources_import_base
+      puts "Copying vendored base resources from #{@module_path}/build/vendor/wmf_dsc_resources to #{@dsc_modules_folder}"
+      FileUtils.mkdir_p(@dsc_modules_folder) unless File.directory?(@dsc_modules_folder)
+      FileUtils.cp_r "#{@module_path}/build/vendor/wmf_dsc_resources/.", "#{@dsc_modules_folder}/"
+    end
+
+    def module_skeleton
+      module_name = Pathname.new(@target_module_location).basename.to_s
+      ext_module_files = [
+        '.gitignore',
+        '.pmtignore',
+        'LICENSE',
+        'README.md',
+        'Repofile',
+        'spec/*.rb',
+      ]
+      ext_module_files.each do |module_pathes|
+        Dir[module_pathes].each do |path|
+          if File.directory?(path)
+            full_path = "#{@target_module_location}/#{path}"
+            unless File.exists?(full_path)
+              puts "Creating directory #{full_path}"
+              FileUtils.mkdir_p(full_path)
+            end
+          else
+            directory = Pathname.new(path).dirname
+            full_directory_path = "#{@target_module_location}/#{directory}"
+            full_path = "#{@target_module_location}/#{path}"
+            unless File.exists?(full_directory_path)
+              puts "Creating directory #{full_directory_path}"
+              FileUtils.mkdir_p(full_directory_path)
+            end
+            unless File.exists?(full_path)
+              puts "Copying file #{path} to #{full_path}"
+              FileUtils.cp(path, full_path)
+            end
+          end
+        end
+      end
+
+      unless File.exists?("#{@target_module_location}/Puppetfile")
+        puts "Creating #{@target_module_location}/Puppetfile"
+        # Generate Puppetfile with dependency on this dsc module
+        puppetfile_content = <<-eos
+forge 'https://forgeapi.puppetlabs.com'
+mod '#{@base_module_name}', :git => '#{@base_module_repo_url}', :ref => '#{@base_module_branch}'
+eos
+        File.open("#{@target_module_location}/Puppetfile", 'w') do |file|
+          file.write puppetfile_content
+        end
+      end
+
+      # Generate metadata.json
+      unless File.exists?("#{@target_module_location}/metadata.json")
+        puts "Creating #{@target_module_location}/metadata.json"
+        root_dsc_metadata = JSON.parse(File.read('metadata.json'))
+        module_metadata = {}
+        module_metadata["name"] = module_name
+        module_metadata["tags"] = root_dsc_metadata["tags"]
+        module_metadata["operatingsystem_support"] = root_dsc_metadata["operatingsystem_support"]
+        module_metadata["requirements"] = root_dsc_metadata["requirements"]
+        module_metadata["dependencies"] = [
+          {
+            "name"=> root_dsc_metadata['name'].sub('-','/'),
+            "version_requirement" => root_dsc_metadata['version']
+          }
+        ]
+        File.open("#{@target_module_location}/metadata.json", 'w') do |file|
+          file.write JSON.pretty_generate(module_metadata)
+        end
+      end
+
+      # Generate Gemfile without any groups
+      unless File.exists?("#{@target_module_location}/Gemfile")
+        puts "Creating #{@target_module_location}/Gemfile"
+        gemfile_content = File.read('Gemfile')
+        File.open("#{@target_module_location}/Gemfile", 'w') do |file|
+          #file.write gemfile_content.gsub(/^group.*^end$/m,'')
+          file.write gemfile_content
+        end
+      end
+
+      # Generate Rakefile
+      unless File.exists?("#{@target_module_location}/Rakefile")
+        puts "Creating #{@target_module_location}/Rakefile"
+        rakefile_content = File.read('Rakefile')
+        File.open("#{@target_module_location}/Rakefile", 'w') do |file|
+          file.write rakefile_content.gsub(/\/spec\/fixtures\/modules\/dsc/, "/spec/fixtures/modules/#{module_name.split('-').last}")
+        end
+      end
 
     end
 
@@ -236,7 +352,7 @@ module Dsc
           puts "#{resource.name} will not be usable with puppet"
         end
       end
-      type_pathes
+      type_pathes.each{|m| puts "#{m}"}
     end
 
     def get_dsc_types
@@ -247,9 +363,9 @@ module Dsc
       dsc_types
     end
 
-    def document_types(markdown_file_path, dsc_types)
-      puts "Creating #{markdown_file_path}"
-      File.open("#{markdown_file_path}", 'w+') do |file|
+    def document_types
+      puts "Creating #{@dsc_document_file}"
+      File.open("#{@dsc_document_file}", 'w+') do |file|
         file.write("## Resource Types included with DSC module\n")
         file.write("For any system this module is installed on, use\n`Puppet describe typename` for more information.\n\n")
 
@@ -283,6 +399,10 @@ module Dsc
     def clean_dsc_type_specs
       puppet_type_spec_path = "#{@target_module_location}/#{@puppet_type_spec_subpath}"
       clean_folder(["#{puppet_type_spec_path}/dsc_*_spec.rb"])
+    end
+
+    def clean_dsc_types_document
+      clean_files(["#{@target_module_location}/types.md"])
     end
 
     # Mof's
@@ -324,15 +444,22 @@ module Dsc
     private
 
     def clean_folder(folders)
-      type_pathes = []
+      folder_pathes = []
       folders.each do |folder|
-        Dir.glob("#{folder}").each do |filepath|
+        file_pathes = clean_file(Dir.glob("#{folder}"))
+        folder_pathes = folder_pathes + file_pathes
+      end
+      folder_pathes
+    end
+
+    def clean_file(files)
+      type_pathes = []
+        files.each do |filepath|
           pn = Pathname.new(filepath).expand_path.relative_path_from(@module_path)
           type_pathes << "Remove - #{pn.to_s}"
           FileUtils.rm_rf filepath
         end
-      end
-      type_pathes
+      type_pathes.each{|m| puts "#{m}"}
     end
 
   end
