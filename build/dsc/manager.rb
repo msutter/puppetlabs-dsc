@@ -25,6 +25,7 @@ module Dsc
       @type_template_file        = "#{@dsc_lib_path}/templates/dsc_type.rb.erb"
       @type_spec_template_file   = "#{@dsc_lib_path}/templates/dsc_type_spec.rb.erb"
 
+      @is_external_module        = !target_module_location.nil?
       @target_module_location    = target_module_location ? Pathname.new(target_module_location).realdirpath : @module_path
       @import_folder             = "#{@target_module_location}/import"
       @dsc_resources_file        = "#{@target_module_location}/dsc_resource_release_tags.yml"
@@ -141,6 +142,7 @@ module Dsc
         end
       end
 
+
       unless File.exists?("#{@target_module_location}/Puppetfile")
         puts "Creating #{@target_module_location}/Puppetfile"
         # Generate Puppetfile with dependency on this dsc module
@@ -157,9 +159,8 @@ eos
       unless File.exists?("#{@target_module_location}/metadata.json")
         puts "Creating #{@target_module_location}/metadata.json"
         root_dsc_metadata = JSON.parse(File.read('metadata.json'))
-        module_metadata = {}
+        module_metadata = root_dsc_metadata.dup
         module_metadata["name"] = module_name
-        module_metadata["tags"] = root_dsc_metadata["tags"]
         module_metadata["operatingsystem_support"] = root_dsc_metadata["operatingsystem_support"]
         module_metadata["requirements"] = root_dsc_metadata["requirements"]
         module_metadata["dependencies"] = [
@@ -170,6 +171,31 @@ eos
         ]
         File.open("#{@target_module_location}/metadata.json", 'w') do |file|
           file.write JSON.pretty_generate(module_metadata)
+        end
+      end
+
+      # Generate .fixtures.yml with dependencies on base dsc module
+      unless File.exists?("#{@target_module_location}/.fixtures.yml")
+
+        fixture_hash = {
+          'fixtures' => {
+            'repositories' => {
+              @base_module_name.to_s => {
+                'repo' => @base_module_repo_url,
+              }
+            },
+            'symlinks'=> {
+              module_name => '#{source_dir}'
+            }
+          }
+        }
+
+        if @base_module_branch
+          fixture_hash['fixtures']['repositories'][@base_module_name.to_s]['ref'] = @base_module_branch
+        end
+
+        File.open("#{@target_module_location}/.fixtures.yml", 'w') do |file|
+          file.write fixture_hash.to_yaml
         end
       end
 

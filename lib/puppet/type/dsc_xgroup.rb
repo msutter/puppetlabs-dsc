@@ -4,7 +4,6 @@ Puppet::Type.newtype(:dsc_xgroup) do
   require Pathname.new(__FILE__).dirname + '../../' + 'puppet/type/base_dsc'
   require Pathname.new(__FILE__).dirname + '../../puppet_x/puppetlabs/dsc_type_helpers'
 
-
   @doc = %q{
     The DSC xGroup resource type.
     Automatically generated from

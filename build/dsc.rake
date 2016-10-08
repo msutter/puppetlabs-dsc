@@ -9,7 +9,6 @@ namespace :dsc do
   dsc_build_path  = Pathname.new(__FILE__).dirname
   dsc_repo_url    = %x(git config --get remote.origin.url).strip
   dsc_repo_branch = %x(git rev-parse --abbrev-ref HEAD).strip
-  dsc_manager = Dsc::Manager.new
 
   # config
   config_file = "#{dsc_build_path}/dsc.yml"
@@ -19,11 +18,8 @@ namespace :dsc do
     config = {}
   end
 
-  default_dsc_module_path    = dsc_manager.module_path
-  default_dsc_resources_path = dsc_manager.dsc_modules_folder
-  dsc_resources_file         = dsc_manager.dsc_resources_file
-  default_types_path         = "#{default_dsc_module_path}#{dsc_manager.puppet_type_subpath}"
-  default_type_specs_path    = "#{default_dsc_module_path}#{dsc_manager.puppet_type_spec_subpath}"
+  # default_dsc_module_path    = dsc_manager.module_path
+  # default_dsc_resources_path = dsc_manager.dsc_modules_folder
 
   default_repository = config.has_key?('default_source_repository') ? config['default_source_repository'] : {}
   blacklist = config.has_key?('blacklist') ? config['blacklist'] : []
@@ -67,7 +63,6 @@ DOCOPT
       args[:params].nil? ? ARGV : args[:params]
     )
 
-
     # Setting params from config file
     parameters["source_repo_url"] = parameters["source_repo_url"] ||
       default_repository['url'] unless parameters["source_location"]
@@ -108,7 +103,6 @@ DOCOPT
       :unembed_powershell_sources
       )
     )
-
     RakeTaskArguments.execute_rake('dsc:types:document', parameters.filter(
       :target_module_location
       )
@@ -158,14 +152,13 @@ DOCOPT
 Include base DSC resources (the windows native resources)
 
 Usage:
-  dsc:base
-  dsc:base -- --help
+  dsc:resources:base
+  dsc:resources:base -- --help
 
 DOCOPT
     task :base do |t|
-      puts "Copying vendored base resources from #{default_dsc_module_path}/build/vendor/wmf_dsc_resources to #{default_dsc_resources_path}"
-      FileUtils.mkdir_p(default_dsc_resources_path) unless File.directory?(default_dsc_resources_path)
-      FileUtils.cp_r "#{default_dsc_module_path}/build/vendor/wmf_dsc_resources/.", "#{default_dsc_resources_path}/"
+      dsc_manager = Dsc::Manager.new()
+      dsc_manager.resources_import_base
     end
 
   desc <<-DOCOPT
@@ -206,7 +199,9 @@ DOCOPT
         args[:params].nil? ? ARGV : args[:params]
       )
 
-      target_module_location     = parameters["target_module_location"]
+      dsc_manager = Dsc::Manager.new(parameters["target_module_location"])
+      dsc_manager.dsc_modules_embedded = !parameters["unembed_powershell_sources"]
+
       source_repo_url            = parameters["source_repo_url"]
       source_location            = parameters["source_location"]
       repo_branch                = parameters["repo_branch"] || 'master'
@@ -214,9 +209,8 @@ DOCOPT
       release_tag_suffix         = parameters["release_tag_suffix"]
       update_versions            = parameters["update_versions"]
 
-      dsc_resources_path         = default_dsc_resources_path
+      dsc_resources_path         = dsc_manager.dsc_modules_folder
       dsc_resources_path_tmp     = "#{dsc_resources_path}_tmp"
-
 
       puts "Importing #{item_name}"
 
@@ -275,7 +269,6 @@ DOCOPT
         end
 
         puts "Setting release tags/commit for DSC resources..."
-        dsc_manager.target_module_location = target_module_location
         dsc_manager.ensure_versions(submodules, update_versions, release_tag_prefix, release_tag_suffix)
 
       else
@@ -333,27 +326,18 @@ DOCOPT
         t.full_comment,
         args[:params].nil? ? ARGV : args[:params]
       )
-
-      module_path = parameters["target_module_location"] || default_dsc_module_path
-      vendor_dsc_resources_path = "#{module_path}/lib/puppet_x/dsc_resources"
-      puts "Copying vendored resources from '#{default_dsc_resources_path}/.' to '#{vendor_dsc_resources_path}'"
-      # make sure dsc_resources folder exists in puppetx
-      FileUtils.mkdir_p(vendor_dsc_resources_path) unless File.directory?(vendor_dsc_resources_path)
-      # exclude the base resources 'PSDesiredStateConfiguration' from the sync
-      resources_list = Dir["#{default_dsc_resources_path}/*"].reject do |file_path|
-        file_path =~ /^#{default_dsc_resources_path}\/PSDesiredStateConfiguration$/
-      end
-      FileUtils.cp_r resources_list, vendor_dsc_resources_path, :remove_destination => true
+      dsc_manager = Dsc::Manager.new(parameters["target_module_location"])
+      dsc_manager.resources_embed
     end
 
     desc <<-DOCOPT
 Cleanup #{item_name}
 
 Usage:
-  dsc:clean -- \
+  dsc:resources:clean -- \
 [--target_module_location=PATH] \
 
-  dsc:clean -- --help
+  dsc:resources:clean -- --help
 
 Options:
   --target_module_location=PATH   path of the generated module
@@ -368,11 +352,9 @@ DOCOPT
         args[:params].nil? ? ARGV : args[:params]
       )
 
-      module_path = parameters["target_module_location"] || default_dsc_module_path
-      vendor_dsc_resources_path = "#{module_path}/lib/puppet_x/dsc_resources"
+      dsc_manager = Dsc::Manager.new(parameters["target_module_location"])
       puts "Cleaning #{item_name}"
-      FileUtils.rm_rf "#{default_dsc_module_path}/import"
-      FileUtils.rm_rf "#{vendor_dsc_resources_path}"
+      dsc_manager.resources_clean
     end
 
   end
@@ -405,15 +387,12 @@ DOCOPT
         args[:params].nil? ? ARGV : args[:params]
       )
 
-      module_path = parameters["target_module_location"] || default_dsc_module_path
-      unembed_powershell_sources = parameters["unembed_powershell_sources"]
+      dsc_manager = Dsc::Manager.new(parameters["target_module_location"])
+      dsc_manager.dsc_modules_embedded = !parameters["unembed_powershell_sources"]
 
-      dsc_manager.dsc_modules_embedded = !unembed_powershell_sources
-      wait_for_resources = Dir["#{module_path}/**/MSFT_WaitFor*"]
+      wait_for_resources = Dir["#{dsc_manager.module_path}/**/MSFT_WaitFor*"]
       fail "MSFT_WaitFor* resources found - aborting type building! Please remove the following MSFT_WaitFor* DSC Resources and run the build again.\n\n#{wait_for_resources}\n" if !wait_for_resources.empty?
-      dsc_manager.target_module_location = module_path
-      msgs = dsc_manager.build_dsc_types
-      msgs.each{|m| puts "#{m}"}
+      dsc_manager.build_dsc_types
     end
 
     desc <<-DOCOPT
@@ -438,9 +417,8 @@ DOCOPT
         args[:params].nil? ? ARGV : args[:params]
       )
 
-      module_path = parameters["target_module_location"] || default_dsc_module_path
-      dsc_manager.target_module_location = module_path
-      dsc_manager.document_types("#{module_path}/types.md", dsc_manager.get_dsc_types)
+      dsc_manager = Dsc::Manager.new(parameters["target_module_location"])
+      dsc_manager.document_types
     end
 
     desc <<-DOCOPT
@@ -465,14 +443,11 @@ DOCOPT
         args[:params].nil? ? ARGV : args[:params]
       )
 
-      module_path = parameters["target_module_location"] || default_dsc_module_path
+      dsc_manager = Dsc::Manager.new(parameters["target_module_location"])
+
       puts "Cleaning #{item_name}"
-      dsc_manager.target_module_location = module_path
       msgs = dsc_manager.clean_dsc_types
-      msgs.each{|m| puts "#{m}"}
       msgs = dsc_manager.clean_dsc_type_specs
-      msgs.each{|m| puts "#{m}"}
-      FileUtils.rm_rf "#{default_dsc_module_path}/types.md"
     end
 
   end
@@ -503,91 +478,8 @@ DOCOPT
         args[:params].nil? ? ARGV : args[:params]
       )
 
-      dsc_module_path = parameters["target_module_location"] || default_dsc_module_path
-      module_name = Pathname.new(dsc_module_path).basename.to_s
-      ext_module_files = [
-        '.gitignore',
-        '.pmtignore',
-        'LICENSE',
-        'README.md',
-        'Repofile',
-        'spec/*.rb',
-      ]
-      ext_module_files.each do |module_pathes|
-        Dir[module_pathes].each do |path|
-          if File.directory?(path)
-            full_path = "#{dsc_module_path}/#{path}"
-            unless File.exists?(full_path)
-              puts "Creating directory #{full_path}"
-              FileUtils.mkdir_p(full_path)
-            end
-          else
-            directory = Pathname.new(path).dirname
-            full_directory_path = "#{dsc_module_path}/#{directory}"
-            full_path = "#{dsc_module_path}/#{path}"
-            unless File.exists?(full_directory_path)
-              puts "Creating directory #{full_directory_path}"
-              FileUtils.mkdir_p(full_directory_path)
-            end
-            unless File.exists?(full_path)
-              puts "Copying file #{path} to #{full_path}"
-              FileUtils.cp(path, full_path)
-            end
-          end
-        end
-      end
-
-      unless File.exists?("#{dsc_module_path}/Puppetfile")
-        puts "Creating #{dsc_module_path}/Puppetfile"
-        # Generate Puppetfile with dependency on this dsc module
-        Puppetfile_content = <<-eos
-forge "https://forgeapi.puppetlabs.com"
-mod '#{dsc_build_path.parent.basename}', :git => '#{dsc_repo_url}', :ref => '#{dsc_repo_branch}'
-eos
-       File.open("#{dsc_module_path}/Puppetfile", 'w') do |file|
-          file.write Puppetfile_content
-        end
-      end
-
-      # Generate metadata.json
-      unless File.exists?("#{dsc_module_path}/metadata.json")
-        puts "Creating #{dsc_module_path}/metadata.json"
-        root_dsc_metadata = JSON.parse(File.read('metadata.json'))
-        module_metadata = {}
-        module_metadata["name"] = module_name
-        module_metadata["tags"] = root_dsc_metadata["tags"]
-        module_metadata["operatingsystem_support"] = root_dsc_metadata["operatingsystem_support"]
-        module_metadata["requirements"] = root_dsc_metadata["requirements"]
-        module_metadata["dependencies"] = [
-          {
-            "name"=> root_dsc_metadata['name'].sub('-','/'),
-            "version_requirement" => root_dsc_metadata['version']
-          }
-        ]
-        File.open("#{dsc_module_path}/metadata.json", 'w') do |file|
-          file.write JSON.pretty_generate(module_metadata)
-        end
-      end
-
-      # Generate Gemfile without any groups
-      unless File.exists?("#{dsc_module_path}/Gemfile")
-        puts "Creating #{dsc_module_path}/Gemfile"
-        Gemfile_content = File.read('Gemfile')
-        File.open("#{dsc_module_path}/Gemfile", 'w') do |file|
-          #file.write Gemfile_content.gsub(/^group.*^end$/m,'')
-          file.write Gemfile_content
-        end
-      end
-
-      # Generate Rakefile
-      unless File.exists?("#{dsc_module_path}/Rakefile")
-        puts "Creating #{dsc_module_path}/Rakefile"
-        Rakefile_content = File.read('Rakefile')
-        File.open("#{dsc_module_path}/Rakefile", 'w') do |file|
-          file.write Rakefile_content.gsub(/\/spec\/fixtures\/modules\/dsc/, "/spec/fixtures/modules/#{module_name.split('-').last}")
-        end
-      end
-
+      dsc_manager = Dsc::Manager.new(parameters["target_module_location"])
+      dsc_manager.module_skeleton
     end
 
   end

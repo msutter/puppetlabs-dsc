@@ -3,7 +3,6 @@ require 'pathname'
 Puppet::Type.newtype(:dsc_xwebsite) do
   require Pathname.new(__FILE__).dirname + '../../' + 'puppet/type/base_dsc'
   require Pathname.new(__FILE__).dirname + '../../puppet_x/puppetlabs/dsc_type_helpers'
-
     class PuppetX::Dsc::TypeHelpers
       def self.validate_MSFT_xWebBindingInformation(mof_type_map, name, value)
         required = ['protocol']
