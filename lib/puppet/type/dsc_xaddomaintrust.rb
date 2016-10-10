@@ -27,7 +27,7 @@ Puppet::Type.newtype(:dsc_xaddomaintrust) do
   def dscmeta_resource_friendly_name; 'xADDomainTrust' end
   def dscmeta_resource_name; 'MSFT_xADDomainTrust' end
   def dscmeta_module_name; 'xActiveDirectory' end
-  def dscmeta_module_version; '2.12.0.0' end
+  def dscmeta_module_version; '2.13.0.0' end
   def dscmeta_module_embedded; true end
 
   newparam(:name, :namevar => true ) do

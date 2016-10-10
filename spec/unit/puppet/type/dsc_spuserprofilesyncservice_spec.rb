@@ -16,6 +16,7 @@ describe Puppet::Type.type(:dsc_spuserprofilesyncservice) do
       :dsc_userprofileserviceappname => 'foo',
       :dsc_ensure => 'Present',
       :dsc_farmaccount => {"user"=>"user", "password"=>"password"},
+      :dsc_runonlywhenwriteable => true,
       :dsc_installaccount => {"user"=>"user", "password"=>"password"},
     )}.to_not raise_error
   end
@@ -119,6 +120,53 @@ describe Puppet::Type.type(:dsc_spuserprofilesyncservice) do
 
   it 'should not accept uint for dsc_farmaccount' do
     expect{dsc_spuserprofilesyncservice[:dsc_farmaccount] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept array for dsc_runonlywhenwriteable' do
+    expect{dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should accept boolean for dsc_runonlywhenwriteable' do
+    dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable] = true
+    expect(dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable]).to eq(true)
+  end
+
+  it "should accept boolean-like value 'true' and munge this value to boolean for dsc_runonlywhenwriteable" do
+    dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable] = 'true'
+    expect(dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable]).to eq(true)
+  end
+
+  it "should accept boolean-like value 'false' and munge this value to boolean for dsc_runonlywhenwriteable" do
+    dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable] = 'false'
+    expect(dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable]).to eq(false)
+  end
+
+  it "should accept boolean-like value 'True' and munge this value to boolean for dsc_runonlywhenwriteable" do
+    dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable] = 'True'
+    expect(dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable]).to eq(true)
+  end
+
+  it "should accept boolean-like value 'False' and munge this value to boolean for dsc_runonlywhenwriteable" do
+    dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable] = 'False'
+    expect(dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable]).to eq(false)
+  end
+
+  it "should accept boolean-like value :true and munge this value to boolean for dsc_runonlywhenwriteable" do
+    dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable] = :true
+    expect(dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable]).to eq(true)
+  end
+
+  it "should accept boolean-like value :false and munge this value to boolean for dsc_runonlywhenwriteable" do
+    dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable] = :false
+    expect(dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable]).to eq(false)
+  end
+
+  it 'should not accept int for dsc_runonlywhenwriteable' do
+    expect{dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable] = -16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept uint for dsc_runonlywhenwriteable' do
+    expect{dsc_spuserprofilesyncservice[:dsc_runonlywhenwriteable] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   it "should not accept empty password for dsc_installaccount" do

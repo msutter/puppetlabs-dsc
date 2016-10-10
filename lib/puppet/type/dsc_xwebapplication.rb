@@ -50,7 +50,7 @@ Puppet::Type.newtype(:dsc_xwebapplication) do
   def dscmeta_resource_friendly_name; 'xWebApplication' end
   def dscmeta_resource_name; 'MSFT_xWebApplication' end
   def dscmeta_module_name; 'xWebAdministration' end
-  def dscmeta_module_version; '1.12.0.0' end
+  def dscmeta_module_version; '1.14.0.0' end
   def dscmeta_module_embedded; true end
 
   newparam(:name, :namevar => true ) do

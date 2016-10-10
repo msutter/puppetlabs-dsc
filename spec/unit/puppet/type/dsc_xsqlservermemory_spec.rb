@@ -7,6 +7,7 @@ describe Puppet::Type.type(:dsc_xsqlservermemory) do
     Puppet::Type.type(:dsc_xsqlservermemory).new(
       :name     => 'foo',
       :dsc_dynamicalloc => true,
+      :dsc_sqlinstancename => 'foo',
     )
   end
 
@@ -84,6 +85,7 @@ describe Puppet::Type.type(:dsc_xsqlservermemory) do
     #dsc_xsqlservermemory[:dsc_dynamicalloc]
     expect { Puppet::Type.type(:dsc_xsqlservermemory).new(
       :name     => 'foo',
+      :dsc_sqlinstancename => 'foo',
     )}.to raise_error(Puppet::Error, /dsc_dynamicalloc is a required attribute/)
   end
 
@@ -216,6 +218,14 @@ describe Puppet::Type.type(:dsc_xsqlservermemory) do
 
   it 'should not accept uint for dsc_sqlserver' do
     expect{dsc_xsqlservermemory[:dsc_sqlserver] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should require that dsc_sqlinstancename is specified' do
+    #dsc_xsqlservermemory[:dsc_sqlinstancename]
+    expect { Puppet::Type.type(:dsc_xsqlservermemory).new(
+      :name     => 'foo',
+      :dsc_dynamicalloc => true,
+    )}.to raise_error(Puppet::Error, /dsc_sqlinstancename is a required attribute/)
   end
 
   it 'should not accept array for dsc_sqlinstancename' do

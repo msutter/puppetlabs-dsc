@@ -33,6 +33,7 @@ module Dsc
       @vendored_resources_folder = "#{@target_module_location}/lib/puppet_x/dsc_resources"
 
       @dsc_modules_folder        = "#{@import_folder}/dsc_resources"
+      @dsc_modules_folder_tmp    = "#{@dsc_modules_folder}_tmp"
 
       @puppet_type_subpath       = "lib/puppet/type"
       @puppet_type_spec_subpath  = "spec/unit/puppet/type"
@@ -83,13 +84,104 @@ module Dsc
         'real32'   => '32.000',
         'real64'   => '64.000',
       }
+    end
 
+    def resources_import(parameters, blacklist=[])
+      source_repo_url            = parameters["source_repo_url"]
+      source_location            = parameters["source_location"]
+      repo_branch                = parameters["repo_branch"] || 'master'
+      is_git_repo = false
+
+      if source_repo_url
+        mod_name = source_repo_url.split('/').last.split('.').first
+        is_git_repo = true
+        clone_cmd = "git clone -b #{repo_branch} #{source_repo_url} #{@dsc_modules_folder_tmp}"
+        %x(#{clone_cmd}) unless Dir.exist? @dsc_modules_folder_tmp
+      elsif source_location
+        mod_name = source_location.split('/').last
+        is_git_repo = File.exists? File.expand_path("#{source_location}/.git")
+        FileUtils.cp_r "#{source_location}", "#{@dsc_modules_folder_tmp}" unless Dir.exist? @dsc_modules_folder_tmp
+      end
+
+      if is_git_repo
+        # Process git repository
+        sub_cmd = "git -C #{@dsc_modules_folder_tmp} submodule"
+        submodules_strings = `#{sub_cmd}`
+
+        submodules = submodules_strings.split("\n").collect{ |s| {
+            :commit => s.split(' ')[0],
+            :path   => "#{@dsc_modules_folder_tmp}/#{s.split(' ')[1]}",
+            :name   => s.split(' ')[1].split('/').last,
+            :tag    => s.split(' ')[2]
+          }
+        }
+
+        post_cmd = ''
+        post_cmd += "git -C #{@dsc_modules_folder_tmp} checkout #{ENV['DSC_REF']}\n" if ENV['DSC_REF']
+        post_cmd += "git -C #{@dsc_modules_folder_tmp} submodule update --init" if submodules.any?
+        %x(#{post_cmd}) if !post_cmd.empty?
+
+        # Without submodules, we assume that this is a standalone dsc module
+        # and process it as it was a submodule.
+        if submodules.empty?
+          submodules = [{
+            :commit => nil,
+            :path   => "#{@dsc_modules_folder_tmp}",
+            :name   => mod_name,
+            :tag    => nil
+          }]
+        end
+
+      else
+        # Process a directory which is not a git repository
+        submodules = [{
+          :commit => nil,
+          :path   => "#{@dsc_modules_folder_tmp}",
+          :name   => mod_name,
+          :tag    => nil
+        }]
+      end
+
+      blacklisted_submodules = submodules.select { |sm| blacklist.include?(sm[:name])}
+
+      # remove blacklisted modules from submodules array
+      submodules = submodules - blacklisted_submodules
+
+      # copy everything in from the filtered list
+      submodules.each do |submodule|
+        dest_module_path = "#{@dsc_modules_folder}/#{submodule[:name]}"
+        puts "Copying vendored resources from #{submodule[:path]} to #{dest_module_path}"
+        valid_files(submodule[:path]).each do |f|
+          dest = Pathname.new(f.sub(submodule[:path], dest_module_path))
+          FileUtils.mkdir_p(dest.dirname)
+          FileUtils.cp(f, dest)
+        end
+      end
+    end
+
+    def valid_files(path)
+      # filter out unwanted files
+      valid_files = Dir.glob("#{path}/**/*").reject do |f|
+        # reject the .git folder or special git files
+        f =~ /\/\.(git|gitattributes|gitignore|gitmodules)/ ||
+        # reject binary and other file extensions
+        f =~ /\.(pptx|docx|sln|cmd|xml|pssproj|pfx|html|txt|xlsm|csv|png|git|yml|md)$/i ||
+        # reject test / sample / example code
+        f =~ /\/.*([Ss]ample|[Ee]xample|[Tt]est).*/ ||
+        # and don't keep track of dirs
+        Dir.exists?(f)
+      end
     end
 
     def resources_embed
       puts "Copying vendored resources from '#{@dsc_modules_folder}/.' to '#{@vendored_resources_folder}'"
+
+      # remove destination path, copy everything in from import folder
+      FileUtils.rm_rf(@vendored_resources_folder) if Dir.exists?(@vendored_resources_folder)
+
       # make sure dsc_resources folder exists in puppetx
       FileUtils.mkdir_p(@vendored_resources_folder) unless File.directory?(@vendored_resources_folder)
+
       # exclude the base resources 'PSDesiredStateConfiguration' from the sync
       resources_list = Dir["#{@dsc_modules_folder}/*"].reject do |file_path|
         file_path =~ /^#{@dsc_modules_folder}\/PSDesiredStateConfiguration$/
@@ -221,11 +313,10 @@ eos
     end
 
     def ensure_versions(submodules, update_versions, release_tag_prefix, release_tag_suffix)
-      dsc_resources_path_tmp = @dsc_modules_folder + "_tmp"
       resource_tags = {}
       resource_tags = YAML::load_file("#{@dsc_resources_file}") if File.exist? @dsc_resources_file
-      submodules.collect {|submodule| "#{dsc_resources_path_tmp}/#{submodule[:path]}"}.each do |submodule_path|
-        FileUtils.cd(submodule_path) do
+      submodules.each do |submodule|
+        FileUtils.cd(submodule[:path]) do
           dsc_resource_name = %x{ git config --get remote.origin.url }.split('/').last.split('.').first.chomp
           # --date-order probably doesn't matter
           # Requires git version 2.2.0 or higher - https://github.com/git/git/commit/9271095cc5571e306d709ebf8eb7f0a388254d9d

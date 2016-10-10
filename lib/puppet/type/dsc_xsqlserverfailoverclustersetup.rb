@@ -27,7 +27,7 @@ Puppet::Type.newtype(:dsc_xsqlserverfailoverclustersetup) do
   def dscmeta_resource_friendly_name; 'xSQLServerFailoverClusterSetup' end
   def dscmeta_resource_name; 'MSFT_xSQLServerFailoverClusterSetup' end
   def dscmeta_module_name; 'xSQLServer' end
-  def dscmeta_module_version; '1.7.0.0' end
+  def dscmeta_module_version; '2.0.0.0' end
   def dscmeta_module_embedded; true end
 
   newparam(:name, :namevar => true ) do

@@ -7,7 +7,6 @@ describe Puppet::Type.type(:dsc_xhostsfile) do
     Puppet::Type.type(:dsc_xhostsfile).new(
       :name     => 'foo',
       :dsc_hostname => 'foo',
-      :dsc_ipaddress => 'foo',
     )
   end
 
@@ -32,7 +31,6 @@ describe Puppet::Type.type(:dsc_xhostsfile) do
     #dsc_xhostsfile[:dsc_hostname]
     expect { Puppet::Type.type(:dsc_xhostsfile).new(
       :name     => 'foo',
-      :dsc_ipaddress => 'foo',
     )}.to raise_error(Puppet::Error, /dsc_hostname is a required attribute/)
   end
 
@@ -50,14 +48,6 @@ describe Puppet::Type.type(:dsc_xhostsfile) do
 
   it 'should not accept uint for dsc_hostname' do
     expect{dsc_xhostsfile[:dsc_hostname] = 16}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should require that dsc_ipaddress is specified' do
-    #dsc_xhostsfile[:dsc_ipaddress]
-    expect { Puppet::Type.type(:dsc_xhostsfile).new(
-      :name     => 'foo',
-      :dsc_hostname => 'foo',
-    )}.to raise_error(Puppet::Error, /dsc_ipaddress is a required attribute/)
   end
 
   it 'should not accept array for dsc_ipaddress' do

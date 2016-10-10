@@ -20,6 +20,7 @@ describe Puppet::Type.type(:dsc_xexchmailboxserver) do
       :dsc_databasecopyautoactivationpolicy => 'Blocked',
       :dsc_maximumactivedatabases => 'foo',
       :dsc_maximumpreferredactivedatabases => 'foo',
+      :dsc_wacdiscoveryendpoint => 'foo',
     )}.to_not raise_error
   end
 
@@ -213,6 +214,22 @@ describe Puppet::Type.type(:dsc_xexchmailboxserver) do
 
   it 'should not accept uint for dsc_maximumpreferredactivedatabases' do
     expect{dsc_xexchmailboxserver[:dsc_maximumpreferredactivedatabases] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept array for dsc_wacdiscoveryendpoint' do
+    expect{dsc_xexchmailboxserver[:dsc_wacdiscoveryendpoint] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept boolean for dsc_wacdiscoveryendpoint' do
+    expect{dsc_xexchmailboxserver[:dsc_wacdiscoveryendpoint] = true}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept int for dsc_wacdiscoveryendpoint' do
+    expect{dsc_xexchmailboxserver[:dsc_wacdiscoveryendpoint] = -16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept uint for dsc_wacdiscoveryendpoint' do
+    expect{dsc_xexchmailboxserver[:dsc_wacdiscoveryendpoint] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   # Configuration PROVIDER TESTS

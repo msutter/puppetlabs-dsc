@@ -7,6 +7,8 @@ describe Puppet::Type.type(:dsc_xsqlserverlogin) do
     Puppet::Type.type(:dsc_xsqlserverlogin).new(
       :name     => 'foo',
       :dsc_name => 'foo',
+      :dsc_sqlserver => 'foo',
+      :dsc_sqlinstancename => 'foo',
     )
   end
 
@@ -84,6 +86,8 @@ describe Puppet::Type.type(:dsc_xsqlserverlogin) do
     #dsc_xsqlserverlogin[:dsc_name]
     expect { Puppet::Type.type(:dsc_xsqlserverlogin).new(
       :name     => 'foo',
+      :dsc_sqlserver => 'foo',
+      :dsc_sqlinstancename => 'foo',
     )}.to raise_error(Puppet::Error, /dsc_name is a required attribute/)
   end
 
@@ -173,6 +177,15 @@ describe Puppet::Type.type(:dsc_xsqlserverlogin) do
     expect{dsc_xsqlserverlogin[:dsc_logintype] = 16}.to raise_error(Puppet::ResourceError)
   end
 
+  it 'should require that dsc_sqlserver is specified' do
+    #dsc_xsqlserverlogin[:dsc_sqlserver]
+    expect { Puppet::Type.type(:dsc_xsqlserverlogin).new(
+      :name     => 'foo',
+      :dsc_name => 'foo',
+      :dsc_sqlinstancename => 'foo',
+    )}.to raise_error(Puppet::Error, /dsc_sqlserver is a required attribute/)
+  end
+
   it 'should not accept array for dsc_sqlserver' do
     expect{dsc_xsqlserverlogin[:dsc_sqlserver] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
   end
@@ -187,6 +200,15 @@ describe Puppet::Type.type(:dsc_xsqlserverlogin) do
 
   it 'should not accept uint for dsc_sqlserver' do
     expect{dsc_xsqlserverlogin[:dsc_sqlserver] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should require that dsc_sqlinstancename is specified' do
+    #dsc_xsqlserverlogin[:dsc_sqlinstancename]
+    expect { Puppet::Type.type(:dsc_xsqlserverlogin).new(
+      :name     => 'foo',
+      :dsc_name => 'foo',
+      :dsc_sqlserver => 'foo',
+    )}.to raise_error(Puppet::Error, /dsc_sqlinstancename is a required attribute/)
   end
 
   it 'should not accept array for dsc_sqlinstancename' do

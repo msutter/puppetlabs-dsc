@@ -26,7 +26,7 @@ Puppet::Type.newtype(:dsc_spinstall) do
   def dscmeta_resource_friendly_name; 'SPInstall' end
   def dscmeta_resource_name; 'MSFT_SPInstall' end
   def dscmeta_module_name; 'SharePointDsc' end
-  def dscmeta_module_version; '1.1.0.0' end
+  def dscmeta_module_version; '1.3.0.0' end
   def dscmeta_module_embedded; true end
 
   newparam(:name, :namevar => true ) do

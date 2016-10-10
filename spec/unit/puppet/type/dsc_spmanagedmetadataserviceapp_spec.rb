@@ -14,6 +14,7 @@ describe Puppet::Type.type(:dsc_spmanagedmetadataserviceapp) do
     expect { Puppet::Type.type(:dsc_spmanagedmetadataserviceapp).new(
       :name     => 'foo',
       :dsc_name => 'foo',
+      :dsc_proxyname => 'foo',
       :dsc_applicationpool => 'foo',
       :dsc_databaseserver => 'foo',
       :dsc_databasename => 'foo',
@@ -52,6 +53,22 @@ describe Puppet::Type.type(:dsc_spmanagedmetadataserviceapp) do
 
   it 'should not accept uint for dsc_name' do
     expect{dsc_spmanagedmetadataserviceapp[:dsc_name] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept array for dsc_proxyname' do
+    expect{dsc_spmanagedmetadataserviceapp[:dsc_proxyname] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept boolean for dsc_proxyname' do
+    expect{dsc_spmanagedmetadataserviceapp[:dsc_proxyname] = true}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept int for dsc_proxyname' do
+    expect{dsc_spmanagedmetadataserviceapp[:dsc_proxyname] = -16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept uint for dsc_proxyname' do
+    expect{dsc_spmanagedmetadataserviceapp[:dsc_proxyname] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   it 'should not accept array for dsc_applicationpool' do

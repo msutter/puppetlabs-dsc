@@ -25,6 +25,7 @@ describe Puppet::Type.type(:dsc_xadcomputer) do
       :dsc_manager => 'foo',
       :dsc_domaincontroller => 'foo',
       :dsc_domainadministratorcredential => {"user"=>"user", "password"=>"password"},
+      :dsc_requestfile => 'foo',
       :dsc_ensure => 'Present',
       :dsc_distinguishedname => 'foo',
       :dsc_sid => 'foo',
@@ -272,6 +273,22 @@ describe Puppet::Type.type(:dsc_xadcomputer) do
 
   it 'should not accept uint for dsc_domainadministratorcredential' do
     expect{dsc_xadcomputer[:dsc_domainadministratorcredential] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept array for dsc_requestfile' do
+    expect{dsc_xadcomputer[:dsc_requestfile] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept boolean for dsc_requestfile' do
+    expect{dsc_xadcomputer[:dsc_requestfile] = true}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept int for dsc_requestfile' do
+    expect{dsc_xadcomputer[:dsc_requestfile] = -16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept uint for dsc_requestfile' do
+    expect{dsc_xadcomputer[:dsc_requestfile] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   it 'should accept dsc_ensure predefined value Present' do

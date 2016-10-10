@@ -14,6 +14,7 @@ describe Puppet::Type.type(:dsc_spworkmanagementserviceapp) do
     expect { Puppet::Type.type(:dsc_spworkmanagementserviceapp).new(
       :name     => 'foo',
       :dsc_name => 'foo',
+      :dsc_proxyname => 'foo',
       :dsc_ensure => 'Present',
       :dsc_applicationpool => 'foo',
       :dsc_minimumtimebetweenewssyncsubscriptionsearches => 32,
@@ -55,6 +56,22 @@ describe Puppet::Type.type(:dsc_spworkmanagementserviceapp) do
 
   it 'should not accept uint for dsc_name' do
     expect{dsc_spworkmanagementserviceapp[:dsc_name] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept array for dsc_proxyname' do
+    expect{dsc_spworkmanagementserviceapp[:dsc_proxyname] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept boolean for dsc_proxyname' do
+    expect{dsc_spworkmanagementserviceapp[:dsc_proxyname] = true}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept int for dsc_proxyname' do
+    expect{dsc_spworkmanagementserviceapp[:dsc_proxyname] = -16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept uint for dsc_proxyname' do
+    expect{dsc_spworkmanagementserviceapp[:dsc_proxyname] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   it 'should accept dsc_ensure predefined value Present' do

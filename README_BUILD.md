@@ -17,16 +17,126 @@ bundle exec rake
 You can use following rake tasks for your convenience
 
 ~~~
-rake dsc:build             # Import and build all
-rake dsc:clean             # Cleanup all
-rake dsc:dmtf:clean        # Cleanup DMTF CIM MOF Schema files
-rake dsc:dmtf:import       # Import DMTF CIM MOF Schema files
-rake dsc:resources:clean   # Cleanup DSC Powershell modules files
-rake dsc:resources:import  # Import DSC Powershell modules files
-rake dsc:resources:embed   # Embed DSC Powershell modules files
-rake dsc:types:build       # Build DSC types in (lib/puppet/type)
-rake dsc:types:clean       # Cleanup DSC types in (lib/puppet/type)
-~~~
+rake dsc:build[params]
+    Build Puppet types from DSC Resources
+
+    Usage:
+      dsc:build -- [--target_module_location=PATH] [--source_repo_url=URL | --source_location=PATH] [--repo_branch=BRANCH] [--release_tag_prefix=PREFIX] [--release_tag_suffix=SUFFIX] [--update_versions] [--unembed_powershell_sources] [--base_only]
+
+      dsc:build -- --help
+
+    Options:
+      --target_module_location=PATH   path of the generated module
+                                      this will build an external module
+      --source_repo_url=URL           source Git repo url
+      --repo_branch=BRANCH            source Git repo branch
+      --release_tag_prefix=PREFIX     string prefixing the tag version
+      --release_tag_suffix=SUFFIX     string suffixing the tag version
+      --source_location=PATH          source location (local path)
+                                      can be the path of a locally cloned git repo
+      --update_versions               should the last version be used
+      --unembed_powershell_sources    should the powershell sources be removed
+                                      per default the sources are embedded
+      --base_only                     only build base resources (skips the import)
+
+rake dsc:clean[params]
+    Clean Puppet types and DSC Resources
+
+    Usage:
+      dsc:clean -- [--target_module_location=PATH]
+      dsc:clean -- --help
+
+    Options:
+      --target_module_location=PATH   path of the generated module
+
+rake dsc:module:skeleton[params]
+    Generate skeleton for External DSC module
+
+    Usage:
+      dsc:module:skeleton -- [--target_module_location=PATH]
+      dsc:module:skeleton -- --help
+
+    Options:
+      --target_module_location=PATH   path of the generated module
+
+rake dsc:resources:base
+    Include base DSC resources (the windows native resources)
+
+    Usage:
+      dsc:resources:base
+      dsc:resources:base -- --help
+
+rake dsc:resources:clean[params]
+    Cleanup DSC Powershell modules files
+
+    Usage:
+      dsc:resources:clean -- [--target_module_location=PATH]
+      dsc:resources:clean -- --help
+
+    Options:
+      --target_module_location=PATH   path of the generated module
+
+rake dsc:resources:embed[params]
+    Embed DSC Powershell modules files
+
+    Usage:
+      dsc:resources:embed -- [--target_module_location=PATH]
+      dsc:resources:embed -- --help
+
+    Options:
+      --target_module_location=PATH   path of the generated module
+
+rake dsc:resources:import[params]
+    Import DSC Powershell modules files
+
+    Usage:
+      dsc:resources:import -- [--target_module_location=PATH] [--source_repo_url=URL | --source_location=PATH] [--repo_branch=BRANCH] [--release_tag_prefix=PREFIX] [--release_tag_suffix=SUFFIX] [--update_versions] [--unembed_powershell_sources]
+      dsc:resources:import -- --help
+
+    Options:
+      --target_module_location=PATH   path of the generated module
+                                      this will build an external module
+      --source_repo_url=URL           source Git repo url
+      --repo_branch=BRANCH            source Git repo branch
+      --release_tag_prefix=PREFIX     string prefixing the tag version
+      --release_tag_suffix=SUFFIX     string suffixing the tag version
+      --source_location=PATH          source location (local path)
+                                      can be the path of a locally cloned git repo
+      --update_versions               should the last version be used
+      --unembed_powershell_sources    should the powershell sources be removed
+                                      per default the sources are embedded
+
+rake dsc:types:build[params]
+    Build DSC types and type specs
+
+    Usage:
+      dsc:types:build -- [--target_module_location=PATH] [--unembed_powershell_sources]
+      dsc:types:build -- --help
+
+    Options:
+      --target_module_location=PATH   path of the generated module
+      --unembed_powershell_sources    should the powershell sources be removed
+                                      per default the sources are embedded
+
+rake dsc:types:clean[params]
+    Cleanup DSC types and type specs
+
+    Usage:
+      dsc:types:clean -- [--target_module_location=PATH]
+      dsc:types:clean -- --help
+
+    Options:
+      --target_module_location=PATH   path of the generated module
+
+rake dsc:types:document[params]
+    Document DSC types and type specs
+
+    Usage:
+      dsc:types:document -- [--target_module_location=PATH]
+      dsc:types:document -- --help
+
+    Options:
+      --target_module_location=PATH   path of the generated module~~~
 
 ## Building
 
@@ -60,7 +170,9 @@ xComputerManagement: 1.7.0.0-PSGallery
 
 ### How to rebuild all DSC resources with the latest version
 
-The simplest way to rebuild all DSC resources with the latest version is to delete the `dsc_resource_release_tags.yml` prior to building. Alternatively, you can pass `true` to the `update_versions` argument of the `dsc:resources:import` rake task.
+The simplest way to rebuild all DSC resources with the latest version is to delete the `dsc_resource_release_tags.yml` prior to building. Alternatively, you can pass the `--update_versions` flag to the `dsc:resources:build` or `dsc:resources:import` rake task.
+
+example: `bundle exec rake dsc:build -- --update_versions`
 
 ## Build Custom DSC Resource Types
 You can build puppet types based on your own powershell source code.
@@ -79,7 +191,7 @@ build your types.
 the folder structure should be `MyModule/MyModule.psd1` and not `MyModule/SomethingElse.psd1`. The builder also requires a subdirectory called `DSCRsources`. See the image below:
   ![Module Layout - PSD1 file](docs/images/dir_struct_psdname.png)
 
-### Steps to Build
+### Steps to Build the base module with your own powershell code
 
 When importing or creating custom types, follow these steps:
 
@@ -93,6 +205,12 @@ When importing or creating custom types, follow these steps:
     * Inspect the actual types, they should be named to lower cased `dsc_DSCRESOURCENAME` and the properties all should be named to lower cased `dsc_DSCPROPERTY`.
 6. The rake task will also copy the DSC resources into `lib/puppet_x/dsc_resources/`. This is necessary for the module to find the DSC resource implementations at runtime when applying the Puppet DSC resources.
 7. Enjoy!
+
+## Build external DSC Puppet modules based on Custom Resource Types
+You can build your own dsc puppet modules (external module) based on your own powershell source code. External puppet modules will automatically require the dsc base module (puppetlabs-dsc) as they need the base type and the provider for DSC handling.
+
+### Getting started
+### Steps to Build external module with your own powershell code
 
 ## Partial support for DSC composite resources.
 If you need a puppet type for a DSC composite resources, you have to define a xxx.schema.mof file next to your xxx.Schema.psm1 file.

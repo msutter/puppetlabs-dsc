@@ -117,9 +117,9 @@ describe Puppet::Type.type(:dsc_xregistry) do
     expect(dsc_xregistry[:dsc_valuetype]).to eq('binary')
   end
 
-  it 'should accept dsc_valuetype predefined value Dword' do
-    dsc_xregistry[:dsc_valuetype] = 'Dword'
-    expect(dsc_xregistry[:dsc_valuetype]).to eq('Dword')
+  it 'should accept dsc_valuetype predefined value DWord' do
+    dsc_xregistry[:dsc_valuetype] = 'DWord'
+    expect(dsc_xregistry[:dsc_valuetype]).to eq('DWord')
   end
 
   it 'should accept dsc_valuetype predefined value dword' do
@@ -127,9 +127,9 @@ describe Puppet::Type.type(:dsc_xregistry) do
     expect(dsc_xregistry[:dsc_valuetype]).to eq('dword')
   end
 
-  it 'should accept dsc_valuetype predefined value Qword' do
-    dsc_xregistry[:dsc_valuetype] = 'Qword'
-    expect(dsc_xregistry[:dsc_valuetype]).to eq('Qword')
+  it 'should accept dsc_valuetype predefined value QWord' do
+    dsc_xregistry[:dsc_valuetype] = 'QWord'
+    expect(dsc_xregistry[:dsc_valuetype]).to eq('QWord')
   end
 
   it 'should accept dsc_valuetype predefined value qword' do

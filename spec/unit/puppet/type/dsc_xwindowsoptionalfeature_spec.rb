@@ -15,9 +15,8 @@ describe Puppet::Type.type(:dsc_xwindowsoptionalfeature) do
       :name     => 'foo',
       :dsc_name => 'foo',
       :dsc_ensure => 'Present',
-      :dsc_source => ["foo", "bar", "spec"],
-      :dsc_nowindowsupdatecheck => true,
       :dsc_removefilesondisable => true,
+      :dsc_nowindowsupdatecheck => true,
       :dsc_loglevel => 'ErrorsOnly',
       :dsc_logpath => 'foo',
       :dsc_customproperties => ["foo", "bar", "spec"],
@@ -107,21 +106,51 @@ describe Puppet::Type.type(:dsc_xwindowsoptionalfeature) do
     expect{dsc_xwindowsoptionalfeature[:dsc_ensure] = 16}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should accept array for dsc_source' do
-    dsc_xwindowsoptionalfeature[:dsc_source] = ["foo", "bar", "spec"]
-    expect(dsc_xwindowsoptionalfeature[:dsc_source]).to eq(["foo", "bar", "spec"])
+  it 'should not accept array for dsc_removefilesondisable' do
+    expect{dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should not accept boolean for dsc_source' do
-    expect{dsc_xwindowsoptionalfeature[:dsc_source] = true}.to raise_error(Puppet::ResourceError)
+  it 'should accept boolean for dsc_removefilesondisable' do
+    dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = true
+    expect(dsc_xwindowsoptionalfeature[:dsc_removefilesondisable]).to eq(true)
   end
 
-  it 'should not accept int for dsc_source' do
-    expect{dsc_xwindowsoptionalfeature[:dsc_source] = -16}.to raise_error(Puppet::ResourceError)
+  it "should accept boolean-like value 'true' and munge this value to boolean for dsc_removefilesondisable" do
+    dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = 'true'
+    expect(dsc_xwindowsoptionalfeature[:dsc_removefilesondisable]).to eq(true)
   end
 
-  it 'should not accept uint for dsc_source' do
-    expect{dsc_xwindowsoptionalfeature[:dsc_source] = 16}.to raise_error(Puppet::ResourceError)
+  it "should accept boolean-like value 'false' and munge this value to boolean for dsc_removefilesondisable" do
+    dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = 'false'
+    expect(dsc_xwindowsoptionalfeature[:dsc_removefilesondisable]).to eq(false)
+  end
+
+  it "should accept boolean-like value 'True' and munge this value to boolean for dsc_removefilesondisable" do
+    dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = 'True'
+    expect(dsc_xwindowsoptionalfeature[:dsc_removefilesondisable]).to eq(true)
+  end
+
+  it "should accept boolean-like value 'False' and munge this value to boolean for dsc_removefilesondisable" do
+    dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = 'False'
+    expect(dsc_xwindowsoptionalfeature[:dsc_removefilesondisable]).to eq(false)
+  end
+
+  it "should accept boolean-like value :true and munge this value to boolean for dsc_removefilesondisable" do
+    dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = :true
+    expect(dsc_xwindowsoptionalfeature[:dsc_removefilesondisable]).to eq(true)
+  end
+
+  it "should accept boolean-like value :false and munge this value to boolean for dsc_removefilesondisable" do
+    dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = :false
+    expect(dsc_xwindowsoptionalfeature[:dsc_removefilesondisable]).to eq(false)
+  end
+
+  it 'should not accept int for dsc_removefilesondisable' do
+    expect{dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = -16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept uint for dsc_removefilesondisable' do
+    expect{dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   it 'should not accept array for dsc_nowindowsupdatecheck' do
@@ -169,53 +198,6 @@ describe Puppet::Type.type(:dsc_xwindowsoptionalfeature) do
 
   it 'should not accept uint for dsc_nowindowsupdatecheck' do
     expect{dsc_xwindowsoptionalfeature[:dsc_nowindowsupdatecheck] = 16}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should not accept array for dsc_removefilesondisable' do
-    expect{dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should accept boolean for dsc_removefilesondisable' do
-    dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = true
-    expect(dsc_xwindowsoptionalfeature[:dsc_removefilesondisable]).to eq(true)
-  end
-
-  it "should accept boolean-like value 'true' and munge this value to boolean for dsc_removefilesondisable" do
-    dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = 'true'
-    expect(dsc_xwindowsoptionalfeature[:dsc_removefilesondisable]).to eq(true)
-  end
-
-  it "should accept boolean-like value 'false' and munge this value to boolean for dsc_removefilesondisable" do
-    dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = 'false'
-    expect(dsc_xwindowsoptionalfeature[:dsc_removefilesondisable]).to eq(false)
-  end
-
-  it "should accept boolean-like value 'True' and munge this value to boolean for dsc_removefilesondisable" do
-    dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = 'True'
-    expect(dsc_xwindowsoptionalfeature[:dsc_removefilesondisable]).to eq(true)
-  end
-
-  it "should accept boolean-like value 'False' and munge this value to boolean for dsc_removefilesondisable" do
-    dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = 'False'
-    expect(dsc_xwindowsoptionalfeature[:dsc_removefilesondisable]).to eq(false)
-  end
-
-  it "should accept boolean-like value :true and munge this value to boolean for dsc_removefilesondisable" do
-    dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = :true
-    expect(dsc_xwindowsoptionalfeature[:dsc_removefilesondisable]).to eq(true)
-  end
-
-  it "should accept boolean-like value :false and munge this value to boolean for dsc_removefilesondisable" do
-    dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = :false
-    expect(dsc_xwindowsoptionalfeature[:dsc_removefilesondisable]).to eq(false)
-  end
-
-  it 'should not accept int for dsc_removefilesondisable' do
-    expect{dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = -16}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should not accept uint for dsc_removefilesondisable' do
-    expect{dsc_xwindowsoptionalfeature[:dsc_removefilesondisable] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   it 'should accept dsc_loglevel predefined value ErrorsOnly' do

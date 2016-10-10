@@ -14,18 +14,19 @@ describe Puppet::Type.type(:dsc_xservice) do
     expect { Puppet::Type.type(:dsc_xservice).new(
       :name     => 'foo',
       :dsc_name => 'foo',
-      :dsc_state => 'Running',
+      :dsc_ensure => 'Present',
+      :dsc_path => 'foo',
       :dsc_startuptype => 'Automatic',
       :dsc_builtinaccount => 'LocalSystem',
       :dsc_credential => {"user"=>"user", "password"=>"password"},
-      :dsc_status => 'foo',
+      :dsc_desktopinteract => true,
+      :dsc_state => 'Running',
       :dsc_displayname => 'foo',
       :dsc_description => 'foo',
-      :dsc_path => 'foo',
       :dsc_dependencies => ["foo", "bar", "spec"],
       :dsc_startuptimeout => 32,
       :dsc_terminatetimeout => 32,
-      :dsc_ensure => 'Present',
+      :dsc_status => 'foo',
     )}.to_not raise_error
   end
 
@@ -60,44 +61,70 @@ describe Puppet::Type.type(:dsc_xservice) do
     expect{dsc_xservice[:dsc_name] = 16}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should accept dsc_state predefined value Running' do
-    dsc_xservice[:dsc_state] = 'Running'
-    expect(dsc_xservice[:dsc_state]).to eq('Running')
+  it 'should accept dsc_ensure predefined value Present' do
+    dsc_xservice[:dsc_ensure] = 'Present'
+    expect(dsc_xservice[:dsc_ensure]).to eq('Present')
   end
 
-  it 'should accept dsc_state predefined value running' do
-    dsc_xservice[:dsc_state] = 'running'
-    expect(dsc_xservice[:dsc_state]).to eq('running')
+  it 'should accept dsc_ensure predefined value present' do
+    dsc_xservice[:dsc_ensure] = 'present'
+    expect(dsc_xservice[:dsc_ensure]).to eq('present')
   end
 
-  it 'should accept dsc_state predefined value Stopped' do
-    dsc_xservice[:dsc_state] = 'Stopped'
-    expect(dsc_xservice[:dsc_state]).to eq('Stopped')
+  it 'should accept dsc_ensure predefined value present and update ensure with this value (ensure end value should be a symbol)' do
+    dsc_xservice[:dsc_ensure] = 'present'
+    expect(dsc_xservice[:ensure]).to eq(dsc_xservice[:dsc_ensure].downcase.to_sym)
   end
 
-  it 'should accept dsc_state predefined value stopped' do
-    dsc_xservice[:dsc_state] = 'stopped'
-    expect(dsc_xservice[:dsc_state]).to eq('stopped')
+  it 'should accept dsc_ensure predefined value Absent' do
+    dsc_xservice[:dsc_ensure] = 'Absent'
+    expect(dsc_xservice[:dsc_ensure]).to eq('Absent')
+  end
+
+  it 'should accept dsc_ensure predefined value absent' do
+    dsc_xservice[:dsc_ensure] = 'absent'
+    expect(dsc_xservice[:dsc_ensure]).to eq('absent')
+  end
+
+  it 'should accept dsc_ensure predefined value absent and update ensure with this value (ensure end value should be a symbol)' do
+    dsc_xservice[:dsc_ensure] = 'absent'
+    expect(dsc_xservice[:ensure]).to eq(dsc_xservice[:dsc_ensure].downcase.to_sym)
   end
 
   it 'should not accept values not equal to predefined values' do
-    expect{dsc_xservice[:dsc_state] = 'invalid value'}.to raise_error(Puppet::ResourceError)
+    expect{dsc_xservice[:dsc_ensure] = 'invalid value'}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should not accept array for dsc_state' do
-    expect{dsc_xservice[:dsc_state] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  it 'should not accept array for dsc_ensure' do
+    expect{dsc_xservice[:dsc_ensure] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should not accept boolean for dsc_state' do
-    expect{dsc_xservice[:dsc_state] = true}.to raise_error(Puppet::ResourceError)
+  it 'should not accept boolean for dsc_ensure' do
+    expect{dsc_xservice[:dsc_ensure] = true}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should not accept int for dsc_state' do
-    expect{dsc_xservice[:dsc_state] = -16}.to raise_error(Puppet::ResourceError)
+  it 'should not accept int for dsc_ensure' do
+    expect{dsc_xservice[:dsc_ensure] = -16}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should not accept uint for dsc_state' do
-    expect{dsc_xservice[:dsc_state] = 16}.to raise_error(Puppet::ResourceError)
+  it 'should not accept uint for dsc_ensure' do
+    expect{dsc_xservice[:dsc_ensure] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept array for dsc_path' do
+    expect{dsc_xservice[:dsc_path] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept boolean for dsc_path' do
+    expect{dsc_xservice[:dsc_path] = true}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept int for dsc_path' do
+    expect{dsc_xservice[:dsc_path] = -16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept uint for dsc_path' do
+    expect{dsc_xservice[:dsc_path] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   it 'should accept dsc_startuptype predefined value Automatic' do
@@ -220,20 +247,91 @@ describe Puppet::Type.type(:dsc_xservice) do
     expect{dsc_xservice[:dsc_credential] = 16}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should not accept array for dsc_status' do
-    expect{dsc_xservice[:dsc_status] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  it 'should not accept array for dsc_desktopinteract' do
+    expect{dsc_xservice[:dsc_desktopinteract] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should not accept boolean for dsc_status' do
-    expect{dsc_xservice[:dsc_status] = true}.to raise_error(Puppet::ResourceError)
+  it 'should accept boolean for dsc_desktopinteract' do
+    dsc_xservice[:dsc_desktopinteract] = true
+    expect(dsc_xservice[:dsc_desktopinteract]).to eq(true)
   end
 
-  it 'should not accept int for dsc_status' do
-    expect{dsc_xservice[:dsc_status] = -16}.to raise_error(Puppet::ResourceError)
+  it "should accept boolean-like value 'true' and munge this value to boolean for dsc_desktopinteract" do
+    dsc_xservice[:dsc_desktopinteract] = 'true'
+    expect(dsc_xservice[:dsc_desktopinteract]).to eq(true)
   end
 
-  it 'should not accept uint for dsc_status' do
-    expect{dsc_xservice[:dsc_status] = 16}.to raise_error(Puppet::ResourceError)
+  it "should accept boolean-like value 'false' and munge this value to boolean for dsc_desktopinteract" do
+    dsc_xservice[:dsc_desktopinteract] = 'false'
+    expect(dsc_xservice[:dsc_desktopinteract]).to eq(false)
+  end
+
+  it "should accept boolean-like value 'True' and munge this value to boolean for dsc_desktopinteract" do
+    dsc_xservice[:dsc_desktopinteract] = 'True'
+    expect(dsc_xservice[:dsc_desktopinteract]).to eq(true)
+  end
+
+  it "should accept boolean-like value 'False' and munge this value to boolean for dsc_desktopinteract" do
+    dsc_xservice[:dsc_desktopinteract] = 'False'
+    expect(dsc_xservice[:dsc_desktopinteract]).to eq(false)
+  end
+
+  it "should accept boolean-like value :true and munge this value to boolean for dsc_desktopinteract" do
+    dsc_xservice[:dsc_desktopinteract] = :true
+    expect(dsc_xservice[:dsc_desktopinteract]).to eq(true)
+  end
+
+  it "should accept boolean-like value :false and munge this value to boolean for dsc_desktopinteract" do
+    dsc_xservice[:dsc_desktopinteract] = :false
+    expect(dsc_xservice[:dsc_desktopinteract]).to eq(false)
+  end
+
+  it 'should not accept int for dsc_desktopinteract' do
+    expect{dsc_xservice[:dsc_desktopinteract] = -16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept uint for dsc_desktopinteract' do
+    expect{dsc_xservice[:dsc_desktopinteract] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should accept dsc_state predefined value Running' do
+    dsc_xservice[:dsc_state] = 'Running'
+    expect(dsc_xservice[:dsc_state]).to eq('Running')
+  end
+
+  it 'should accept dsc_state predefined value running' do
+    dsc_xservice[:dsc_state] = 'running'
+    expect(dsc_xservice[:dsc_state]).to eq('running')
+  end
+
+  it 'should accept dsc_state predefined value Stopped' do
+    dsc_xservice[:dsc_state] = 'Stopped'
+    expect(dsc_xservice[:dsc_state]).to eq('Stopped')
+  end
+
+  it 'should accept dsc_state predefined value stopped' do
+    dsc_xservice[:dsc_state] = 'stopped'
+    expect(dsc_xservice[:dsc_state]).to eq('stopped')
+  end
+
+  it 'should not accept values not equal to predefined values' do
+    expect{dsc_xservice[:dsc_state] = 'invalid value'}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept array for dsc_state' do
+    expect{dsc_xservice[:dsc_state] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept boolean for dsc_state' do
+    expect{dsc_xservice[:dsc_state] = true}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept int for dsc_state' do
+    expect{dsc_xservice[:dsc_state] = -16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept uint for dsc_state' do
+    expect{dsc_xservice[:dsc_state] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   it 'should not accept array for dsc_displayname' do
@@ -266,22 +364,6 @@ describe Puppet::Type.type(:dsc_xservice) do
 
   it 'should not accept uint for dsc_description' do
     expect{dsc_xservice[:dsc_description] = 16}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should not accept array for dsc_path' do
-    expect{dsc_xservice[:dsc_path] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should not accept boolean for dsc_path' do
-    expect{dsc_xservice[:dsc_path] = true}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should not accept int for dsc_path' do
-    expect{dsc_xservice[:dsc_path] = -16}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should not accept uint for dsc_path' do
-    expect{dsc_xservice[:dsc_path] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   it 'should accept array for dsc_dependencies' do
@@ -369,54 +451,20 @@ describe Puppet::Type.type(:dsc_xservice) do
     expect(dsc_xservice[:dsc_terminatetimeout]).to eq(64)
   end
 
-  it 'should accept dsc_ensure predefined value Present' do
-    dsc_xservice[:dsc_ensure] = 'Present'
-    expect(dsc_xservice[:dsc_ensure]).to eq('Present')
+  it 'should not accept array for dsc_status' do
+    expect{dsc_xservice[:dsc_status] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should accept dsc_ensure predefined value present' do
-    dsc_xservice[:dsc_ensure] = 'present'
-    expect(dsc_xservice[:dsc_ensure]).to eq('present')
+  it 'should not accept boolean for dsc_status' do
+    expect{dsc_xservice[:dsc_status] = true}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should accept dsc_ensure predefined value present and update ensure with this value (ensure end value should be a symbol)' do
-    dsc_xservice[:dsc_ensure] = 'present'
-    expect(dsc_xservice[:ensure]).to eq(dsc_xservice[:dsc_ensure].downcase.to_sym)
+  it 'should not accept int for dsc_status' do
+    expect{dsc_xservice[:dsc_status] = -16}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should accept dsc_ensure predefined value Absent' do
-    dsc_xservice[:dsc_ensure] = 'Absent'
-    expect(dsc_xservice[:dsc_ensure]).to eq('Absent')
-  end
-
-  it 'should accept dsc_ensure predefined value absent' do
-    dsc_xservice[:dsc_ensure] = 'absent'
-    expect(dsc_xservice[:dsc_ensure]).to eq('absent')
-  end
-
-  it 'should accept dsc_ensure predefined value absent and update ensure with this value (ensure end value should be a symbol)' do
-    dsc_xservice[:dsc_ensure] = 'absent'
-    expect(dsc_xservice[:ensure]).to eq(dsc_xservice[:dsc_ensure].downcase.to_sym)
-  end
-
-  it 'should not accept values not equal to predefined values' do
-    expect{dsc_xservice[:dsc_ensure] = 'invalid value'}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should not accept array for dsc_ensure' do
-    expect{dsc_xservice[:dsc_ensure] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should not accept boolean for dsc_ensure' do
-    expect{dsc_xservice[:dsc_ensure] = true}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should not accept int for dsc_ensure' do
-    expect{dsc_xservice[:dsc_ensure] = -16}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should not accept uint for dsc_ensure' do
-    expect{dsc_xservice[:dsc_ensure] = 16}.to raise_error(Puppet::ResourceError)
+  it 'should not accept uint for dsc_status' do
+    expect{dsc_xservice[:dsc_status] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   # Configuration PROVIDER TESTS

@@ -58,6 +58,7 @@ describe Puppet::Type.type(:dsc_xaduser) do
       :dsc_passwordneverexpires => true,
       :dsc_domaincontroller => 'foo',
       :dsc_domainadministratorcredential => {"user"=>"user", "password"=>"password"},
+      :dsc_passwordauthentication => 'Default',
       :dsc_distinguishedname => 'foo',
     )}.to_not raise_error
   end
@@ -923,6 +924,46 @@ describe Puppet::Type.type(:dsc_xaduser) do
 
   it 'should not accept uint for dsc_domainadministratorcredential' do
     expect{dsc_xaduser[:dsc_domainadministratorcredential] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should accept dsc_passwordauthentication predefined value Default' do
+    dsc_xaduser[:dsc_passwordauthentication] = 'Default'
+    expect(dsc_xaduser[:dsc_passwordauthentication]).to eq('Default')
+  end
+
+  it 'should accept dsc_passwordauthentication predefined value default' do
+    dsc_xaduser[:dsc_passwordauthentication] = 'default'
+    expect(dsc_xaduser[:dsc_passwordauthentication]).to eq('default')
+  end
+
+  it 'should accept dsc_passwordauthentication predefined value Negotiate' do
+    dsc_xaduser[:dsc_passwordauthentication] = 'Negotiate'
+    expect(dsc_xaduser[:dsc_passwordauthentication]).to eq('Negotiate')
+  end
+
+  it 'should accept dsc_passwordauthentication predefined value negotiate' do
+    dsc_xaduser[:dsc_passwordauthentication] = 'negotiate'
+    expect(dsc_xaduser[:dsc_passwordauthentication]).to eq('negotiate')
+  end
+
+  it 'should not accept values not equal to predefined values' do
+    expect{dsc_xaduser[:dsc_passwordauthentication] = 'invalid value'}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept array for dsc_passwordauthentication' do
+    expect{dsc_xaduser[:dsc_passwordauthentication] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept boolean for dsc_passwordauthentication' do
+    expect{dsc_xaduser[:dsc_passwordauthentication] = true}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept int for dsc_passwordauthentication' do
+    expect{dsc_xaduser[:dsc_passwordauthentication] = -16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept uint for dsc_passwordauthentication' do
+    expect{dsc_xaduser[:dsc_passwordauthentication] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   it 'should not accept array for dsc_distinguishedname' do

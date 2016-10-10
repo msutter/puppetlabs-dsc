@@ -26,7 +26,7 @@ Puppet::Type.newtype(:dsc_xofflinedomainjoin) do
   def dscmeta_resource_friendly_name; 'xOfflineDomainJoin' end
   def dscmeta_resource_name; 'MSFT_xOfflineDomainJoin' end
   def dscmeta_module_name; 'xComputerManagement' end
-  def dscmeta_module_version; '1.7.0.0' end
+  def dscmeta_module_version; '1.8.0.0' end
   def dscmeta_module_embedded; true end
 
   newparam(:name, :namevar => true ) do

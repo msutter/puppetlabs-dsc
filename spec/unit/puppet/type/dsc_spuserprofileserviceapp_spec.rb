@@ -14,6 +14,7 @@ describe Puppet::Type.type(:dsc_spuserprofileserviceapp) do
     expect { Puppet::Type.type(:dsc_spuserprofileserviceapp).new(
       :name     => 'foo',
       :dsc_name => 'foo',
+      :dsc_proxyname => 'foo',
       :dsc_applicationpool => 'foo',
       :dsc_farmaccount => {"user"=>"user", "password"=>"password"},
       :dsc_mysitehostlocation => 'foo',
@@ -23,6 +24,7 @@ describe Puppet::Type.type(:dsc_spuserprofileserviceapp) do
       :dsc_socialdbserver => 'foo',
       :dsc_syncdbname => 'foo',
       :dsc_syncdbserver => 'foo',
+      :dsc_enablenetbios => true,
       :dsc_ensure => 'Present',
       :dsc_installaccount => {"user"=>"user", "password"=>"password"},
     )}.to_not raise_error
@@ -57,6 +59,22 @@ describe Puppet::Type.type(:dsc_spuserprofileserviceapp) do
 
   it 'should not accept uint for dsc_name' do
     expect{dsc_spuserprofileserviceapp[:dsc_name] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept array for dsc_proxyname' do
+    expect{dsc_spuserprofileserviceapp[:dsc_proxyname] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept boolean for dsc_proxyname' do
+    expect{dsc_spuserprofileserviceapp[:dsc_proxyname] = true}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept int for dsc_proxyname' do
+    expect{dsc_spuserprofileserviceapp[:dsc_proxyname] = -16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept uint for dsc_proxyname' do
+    expect{dsc_spuserprofileserviceapp[:dsc_proxyname] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   it 'should not accept array for dsc_applicationpool' do
@@ -205,6 +223,53 @@ describe Puppet::Type.type(:dsc_spuserprofileserviceapp) do
 
   it 'should not accept uint for dsc_syncdbserver' do
     expect{dsc_spuserprofileserviceapp[:dsc_syncdbserver] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept array for dsc_enablenetbios' do
+    expect{dsc_spuserprofileserviceapp[:dsc_enablenetbios] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should accept boolean for dsc_enablenetbios' do
+    dsc_spuserprofileserviceapp[:dsc_enablenetbios] = true
+    expect(dsc_spuserprofileserviceapp[:dsc_enablenetbios]).to eq(true)
+  end
+
+  it "should accept boolean-like value 'true' and munge this value to boolean for dsc_enablenetbios" do
+    dsc_spuserprofileserviceapp[:dsc_enablenetbios] = 'true'
+    expect(dsc_spuserprofileserviceapp[:dsc_enablenetbios]).to eq(true)
+  end
+
+  it "should accept boolean-like value 'false' and munge this value to boolean for dsc_enablenetbios" do
+    dsc_spuserprofileserviceapp[:dsc_enablenetbios] = 'false'
+    expect(dsc_spuserprofileserviceapp[:dsc_enablenetbios]).to eq(false)
+  end
+
+  it "should accept boolean-like value 'True' and munge this value to boolean for dsc_enablenetbios" do
+    dsc_spuserprofileserviceapp[:dsc_enablenetbios] = 'True'
+    expect(dsc_spuserprofileserviceapp[:dsc_enablenetbios]).to eq(true)
+  end
+
+  it "should accept boolean-like value 'False' and munge this value to boolean for dsc_enablenetbios" do
+    dsc_spuserprofileserviceapp[:dsc_enablenetbios] = 'False'
+    expect(dsc_spuserprofileserviceapp[:dsc_enablenetbios]).to eq(false)
+  end
+
+  it "should accept boolean-like value :true and munge this value to boolean for dsc_enablenetbios" do
+    dsc_spuserprofileserviceapp[:dsc_enablenetbios] = :true
+    expect(dsc_spuserprofileserviceapp[:dsc_enablenetbios]).to eq(true)
+  end
+
+  it "should accept boolean-like value :false and munge this value to boolean for dsc_enablenetbios" do
+    dsc_spuserprofileserviceapp[:dsc_enablenetbios] = :false
+    expect(dsc_spuserprofileserviceapp[:dsc_enablenetbios]).to eq(false)
+  end
+
+  it 'should not accept int for dsc_enablenetbios' do
+    expect{dsc_spuserprofileserviceapp[:dsc_enablenetbios] = -16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept uint for dsc_enablenetbios' do
+    expect{dsc_spuserprofileserviceapp[:dsc_enablenetbios] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   it 'should accept dsc_ensure predefined value Present' do

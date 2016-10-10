@@ -28,7 +28,6 @@ describe Puppet::Type.type(:dsc_xpackage) do
       :dsc_size => 32,
       :dsc_version => 'foo',
       :dsc_installed => true,
-      :dsc_runascredential => {"user"=>"user", "password"=>"password"},
       :dsc_filehash => 'foo',
       :dsc_hashalgorithm => 'SHA1',
       :dsc_signersubject => 'foo',
@@ -404,26 +403,6 @@ describe Puppet::Type.type(:dsc_xpackage) do
 
   it 'should not accept uint for dsc_installed' do
     expect{dsc_xpackage[:dsc_installed] = 16}.to raise_error(Puppet::ResourceError)
-  end
-
-  it "should not accept empty password for dsc_runascredential" do
-    expect{dsc_xpackage[:dsc_runascredential] = {"user"=>"user", "password"=>""}}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should not accept array for dsc_runascredential' do
-    expect{dsc_xpackage[:dsc_runascredential] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should not accept boolean for dsc_runascredential' do
-    expect{dsc_xpackage[:dsc_runascredential] = true}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should not accept int for dsc_runascredential' do
-    expect{dsc_xpackage[:dsc_runascredential] = -16}.to raise_error(Puppet::ResourceError)
-  end
-
-  it 'should not accept uint for dsc_runascredential' do
-    expect{dsc_xpackage[:dsc_runascredential] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   it 'should not accept array for dsc_filehash' do

@@ -24,6 +24,7 @@ describe Puppet::Type.type(:dsc_xdscwebservice) do
       :dsc_dscserverurl => 'foo',
       :dsc_registrationkeypath => 'foo',
       :dsc_acceptselfsignedcertificates => true,
+      :dsc_useuptodatesecuritysettings => true,
     )}.to_not raise_error
   end
 
@@ -323,6 +324,53 @@ describe Puppet::Type.type(:dsc_xdscwebservice) do
 
   it 'should not accept uint for dsc_acceptselfsignedcertificates' do
     expect{dsc_xdscwebservice[:dsc_acceptselfsignedcertificates] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept array for dsc_useuptodatesecuritysettings' do
+    expect{dsc_xdscwebservice[:dsc_useuptodatesecuritysettings] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should accept boolean for dsc_useuptodatesecuritysettings' do
+    dsc_xdscwebservice[:dsc_useuptodatesecuritysettings] = true
+    expect(dsc_xdscwebservice[:dsc_useuptodatesecuritysettings]).to eq(true)
+  end
+
+  it "should accept boolean-like value 'true' and munge this value to boolean for dsc_useuptodatesecuritysettings" do
+    dsc_xdscwebservice[:dsc_useuptodatesecuritysettings] = 'true'
+    expect(dsc_xdscwebservice[:dsc_useuptodatesecuritysettings]).to eq(true)
+  end
+
+  it "should accept boolean-like value 'false' and munge this value to boolean for dsc_useuptodatesecuritysettings" do
+    dsc_xdscwebservice[:dsc_useuptodatesecuritysettings] = 'false'
+    expect(dsc_xdscwebservice[:dsc_useuptodatesecuritysettings]).to eq(false)
+  end
+
+  it "should accept boolean-like value 'True' and munge this value to boolean for dsc_useuptodatesecuritysettings" do
+    dsc_xdscwebservice[:dsc_useuptodatesecuritysettings] = 'True'
+    expect(dsc_xdscwebservice[:dsc_useuptodatesecuritysettings]).to eq(true)
+  end
+
+  it "should accept boolean-like value 'False' and munge this value to boolean for dsc_useuptodatesecuritysettings" do
+    dsc_xdscwebservice[:dsc_useuptodatesecuritysettings] = 'False'
+    expect(dsc_xdscwebservice[:dsc_useuptodatesecuritysettings]).to eq(false)
+  end
+
+  it "should accept boolean-like value :true and munge this value to boolean for dsc_useuptodatesecuritysettings" do
+    dsc_xdscwebservice[:dsc_useuptodatesecuritysettings] = :true
+    expect(dsc_xdscwebservice[:dsc_useuptodatesecuritysettings]).to eq(true)
+  end
+
+  it "should accept boolean-like value :false and munge this value to boolean for dsc_useuptodatesecuritysettings" do
+    dsc_xdscwebservice[:dsc_useuptodatesecuritysettings] = :false
+    expect(dsc_xdscwebservice[:dsc_useuptodatesecuritysettings]).to eq(false)
+  end
+
+  it 'should not accept int for dsc_useuptodatesecuritysettings' do
+    expect{dsc_xdscwebservice[:dsc_useuptodatesecuritysettings] = -16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept uint for dsc_useuptodatesecuritysettings' do
+    expect{dsc_xdscwebservice[:dsc_useuptodatesecuritysettings] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   # Configuration PROVIDER TESTS

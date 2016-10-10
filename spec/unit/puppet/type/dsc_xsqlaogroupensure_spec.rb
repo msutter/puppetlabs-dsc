@@ -21,7 +21,9 @@ describe Puppet::Type.type(:dsc_xsqlaogroupensure) do
       :dsc_availabilitygroupsubmask => ["foo", "bar", "spec"],
       :dsc_availabilitygroupport => 32,
       :dsc_readablesecondary => 'None',
-      :dsc_autobackupprefernce => 'Primary',
+      :dsc_autobackuppreference => 'Primary',
+      :dsc_backuppriority => 32,
+      :dsc_endpointport => 32,
       :dsc_sqlserver => 'foo',
       :dsc_sqlinstancename => 'foo',
       :dsc_setupcredential => {"user"=>"user", "password"=>"password"},
@@ -252,44 +254,112 @@ describe Puppet::Type.type(:dsc_xsqlaogroupensure) do
     expect{dsc_xsqlaogroupensure[:dsc_readablesecondary] = 16}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should accept dsc_autobackupprefernce predefined value Primary' do
-    dsc_xsqlaogroupensure[:dsc_autobackupprefernce] = 'Primary'
-    expect(dsc_xsqlaogroupensure[:dsc_autobackupprefernce]).to eq('Primary')
+  it 'should accept dsc_autobackuppreference predefined value Primary' do
+    dsc_xsqlaogroupensure[:dsc_autobackuppreference] = 'Primary'
+    expect(dsc_xsqlaogroupensure[:dsc_autobackuppreference]).to eq('Primary')
   end
 
-  it 'should accept dsc_autobackupprefernce predefined value primary' do
-    dsc_xsqlaogroupensure[:dsc_autobackupprefernce] = 'primary'
-    expect(dsc_xsqlaogroupensure[:dsc_autobackupprefernce]).to eq('primary')
+  it 'should accept dsc_autobackuppreference predefined value primary' do
+    dsc_xsqlaogroupensure[:dsc_autobackuppreference] = 'primary'
+    expect(dsc_xsqlaogroupensure[:dsc_autobackuppreference]).to eq('primary')
   end
 
-  it 'should accept dsc_autobackupprefernce predefined value Secondary' do
-    dsc_xsqlaogroupensure[:dsc_autobackupprefernce] = 'Secondary'
-    expect(dsc_xsqlaogroupensure[:dsc_autobackupprefernce]).to eq('Secondary')
+  it 'should accept dsc_autobackuppreference predefined value Secondary' do
+    dsc_xsqlaogroupensure[:dsc_autobackuppreference] = 'Secondary'
+    expect(dsc_xsqlaogroupensure[:dsc_autobackuppreference]).to eq('Secondary')
   end
 
-  it 'should accept dsc_autobackupprefernce predefined value secondary' do
-    dsc_xsqlaogroupensure[:dsc_autobackupprefernce] = 'secondary'
-    expect(dsc_xsqlaogroupensure[:dsc_autobackupprefernce]).to eq('secondary')
+  it 'should accept dsc_autobackuppreference predefined value secondary' do
+    dsc_xsqlaogroupensure[:dsc_autobackuppreference] = 'secondary'
+    expect(dsc_xsqlaogroupensure[:dsc_autobackuppreference]).to eq('secondary')
   end
 
   it 'should not accept values not equal to predefined values' do
-    expect{dsc_xsqlaogroupensure[:dsc_autobackupprefernce] = 'invalid value'}.to raise_error(Puppet::ResourceError)
+    expect{dsc_xsqlaogroupensure[:dsc_autobackuppreference] = 'invalid value'}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should not accept array for dsc_autobackupprefernce' do
-    expect{dsc_xsqlaogroupensure[:dsc_autobackupprefernce] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  it 'should not accept array for dsc_autobackuppreference' do
+    expect{dsc_xsqlaogroupensure[:dsc_autobackuppreference] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should not accept boolean for dsc_autobackupprefernce' do
-    expect{dsc_xsqlaogroupensure[:dsc_autobackupprefernce] = true}.to raise_error(Puppet::ResourceError)
+  it 'should not accept boolean for dsc_autobackuppreference' do
+    expect{dsc_xsqlaogroupensure[:dsc_autobackuppreference] = true}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should not accept int for dsc_autobackupprefernce' do
-    expect{dsc_xsqlaogroupensure[:dsc_autobackupprefernce] = -16}.to raise_error(Puppet::ResourceError)
+  it 'should not accept int for dsc_autobackuppreference' do
+    expect{dsc_xsqlaogroupensure[:dsc_autobackuppreference] = -16}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should not accept uint for dsc_autobackupprefernce' do
-    expect{dsc_xsqlaogroupensure[:dsc_autobackupprefernce] = 16}.to raise_error(Puppet::ResourceError)
+  it 'should not accept uint for dsc_autobackuppreference' do
+    expect{dsc_xsqlaogroupensure[:dsc_autobackuppreference] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept array for dsc_backuppriority' do
+    expect{dsc_xsqlaogroupensure[:dsc_backuppriority] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept boolean for dsc_backuppriority' do
+    expect{dsc_xsqlaogroupensure[:dsc_backuppriority] = true}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should accept uint for dsc_backuppriority' do
+    dsc_xsqlaogroupensure[:dsc_backuppriority] = 32
+    expect(dsc_xsqlaogroupensure[:dsc_backuppriority]).to eq(32)
+  end
+
+  it 'should not accept signed (negative) value for dsc_backuppriority' do
+    value = -32
+    expect(value).to be < 0
+    expect{dsc_xsqlaogroupensure[:dsc_backuppriority] = value}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should accept string-like uint for dsc_backuppriority' do
+    dsc_xsqlaogroupensure[:dsc_backuppriority] = '16'
+    expect(dsc_xsqlaogroupensure[:dsc_backuppriority]).to eq(16)
+  end
+
+  it 'should accept string-like uint for dsc_backuppriority' do
+    dsc_xsqlaogroupensure[:dsc_backuppriority] = '32'
+    expect(dsc_xsqlaogroupensure[:dsc_backuppriority]).to eq(32)
+  end
+
+  it 'should accept string-like uint for dsc_backuppriority' do
+    dsc_xsqlaogroupensure[:dsc_backuppriority] = '64'
+    expect(dsc_xsqlaogroupensure[:dsc_backuppriority]).to eq(64)
+  end
+
+  it 'should not accept array for dsc_endpointport' do
+    expect{dsc_xsqlaogroupensure[:dsc_endpointport] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should not accept boolean for dsc_endpointport' do
+    expect{dsc_xsqlaogroupensure[:dsc_endpointport] = true}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should accept uint for dsc_endpointport' do
+    dsc_xsqlaogroupensure[:dsc_endpointport] = 32
+    expect(dsc_xsqlaogroupensure[:dsc_endpointport]).to eq(32)
+  end
+
+  it 'should not accept signed (negative) value for dsc_endpointport' do
+    value = -32
+    expect(value).to be < 0
+    expect{dsc_xsqlaogroupensure[:dsc_endpointport] = value}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should accept string-like uint for dsc_endpointport' do
+    dsc_xsqlaogroupensure[:dsc_endpointport] = '16'
+    expect(dsc_xsqlaogroupensure[:dsc_endpointport]).to eq(16)
+  end
+
+  it 'should accept string-like uint for dsc_endpointport' do
+    dsc_xsqlaogroupensure[:dsc_endpointport] = '32'
+    expect(dsc_xsqlaogroupensure[:dsc_endpointport]).to eq(32)
+  end
+
+  it 'should accept string-like uint for dsc_endpointport' do
+    dsc_xsqlaogroupensure[:dsc_endpointport] = '64'
+    expect(dsc_xsqlaogroupensure[:dsc_endpointport]).to eq(64)
   end
 
   it 'should not accept array for dsc_sqlserver' do

@@ -6,14 +6,16 @@ describe Puppet::Type.type(:dsc_xsqlserverdatabase) do
   let :dsc_xsqlserverdatabase do
     Puppet::Type.type(:dsc_xsqlserverdatabase).new(
       :name     => 'foo',
-      :dsc_database => 'foo',
+      :dsc_name => 'foo',
+      :dsc_sqlserver => 'foo',
+      :dsc_sqlinstancename => 'foo',
     )
   end
 
   it 'should allow all properties to be specified' do
     expect { Puppet::Type.type(:dsc_xsqlserverdatabase).new(
       :name     => 'foo',
-      :dsc_database => 'foo',
+      :dsc_name => 'foo',
       :dsc_ensure => 'Present',
       :dsc_sqlserver => 'foo',
       :dsc_sqlinstancename => 'foo',
@@ -28,27 +30,29 @@ describe Puppet::Type.type(:dsc_xsqlserverdatabase) do
     expect(dsc_xsqlserverdatabase[:ensure]).to eq :present
   end
 
-  it 'should require that dsc_database is specified' do
-    #dsc_xsqlserverdatabase[:dsc_database]
+  it 'should require that dsc_name is specified' do
+    #dsc_xsqlserverdatabase[:dsc_name]
     expect { Puppet::Type.type(:dsc_xsqlserverdatabase).new(
       :name     => 'foo',
-    )}.to raise_error(Puppet::Error, /dsc_database is a required attribute/)
+      :dsc_sqlserver => 'foo',
+      :dsc_sqlinstancename => 'foo',
+    )}.to raise_error(Puppet::Error, /dsc_name is a required attribute/)
   end
 
-  it 'should not accept array for dsc_database' do
-    expect{dsc_xsqlserverdatabase[:dsc_database] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
+  it 'should not accept array for dsc_name' do
+    expect{dsc_xsqlserverdatabase[:dsc_name] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should not accept boolean for dsc_database' do
-    expect{dsc_xsqlserverdatabase[:dsc_database] = true}.to raise_error(Puppet::ResourceError)
+  it 'should not accept boolean for dsc_name' do
+    expect{dsc_xsqlserverdatabase[:dsc_name] = true}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should not accept int for dsc_database' do
-    expect{dsc_xsqlserverdatabase[:dsc_database] = -16}.to raise_error(Puppet::ResourceError)
+  it 'should not accept int for dsc_name' do
+    expect{dsc_xsqlserverdatabase[:dsc_name] = -16}.to raise_error(Puppet::ResourceError)
   end
 
-  it 'should not accept uint for dsc_database' do
-    expect{dsc_xsqlserverdatabase[:dsc_database] = 16}.to raise_error(Puppet::ResourceError)
+  it 'should not accept uint for dsc_name' do
+    expect{dsc_xsqlserverdatabase[:dsc_name] = 16}.to raise_error(Puppet::ResourceError)
   end
 
   it 'should accept dsc_ensure predefined value Present' do
@@ -101,6 +105,15 @@ describe Puppet::Type.type(:dsc_xsqlserverdatabase) do
     expect{dsc_xsqlserverdatabase[:dsc_ensure] = 16}.to raise_error(Puppet::ResourceError)
   end
 
+  it 'should require that dsc_sqlserver is specified' do
+    #dsc_xsqlserverdatabase[:dsc_sqlserver]
+    expect { Puppet::Type.type(:dsc_xsqlserverdatabase).new(
+      :name     => 'foo',
+      :dsc_name => 'foo',
+      :dsc_sqlinstancename => 'foo',
+    )}.to raise_error(Puppet::Error, /dsc_sqlserver is a required attribute/)
+  end
+
   it 'should not accept array for dsc_sqlserver' do
     expect{dsc_xsqlserverdatabase[:dsc_sqlserver] = ["foo", "bar", "spec"]}.to raise_error(Puppet::ResourceError)
   end
@@ -115,6 +128,15 @@ describe Puppet::Type.type(:dsc_xsqlserverdatabase) do
 
   it 'should not accept uint for dsc_sqlserver' do
     expect{dsc_xsqlserverdatabase[:dsc_sqlserver] = 16}.to raise_error(Puppet::ResourceError)
+  end
+
+  it 'should require that dsc_sqlinstancename is specified' do
+    #dsc_xsqlserverdatabase[:dsc_sqlinstancename]
+    expect { Puppet::Type.type(:dsc_xsqlserverdatabase).new(
+      :name     => 'foo',
+      :dsc_name => 'foo',
+      :dsc_sqlserver => 'foo',
+    )}.to raise_error(Puppet::Error, /dsc_sqlinstancename is a required attribute/)
   end
 
   it 'should not accept array for dsc_sqlinstancename' do

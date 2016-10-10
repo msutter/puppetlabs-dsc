@@ -26,7 +26,7 @@ Puppet::Type.newtype(:dsc_xexchmapivirtualdirectory) do
   def dscmeta_resource_friendly_name; 'xExchMapiVirtualDirectory' end
   def dscmeta_resource_name; 'MSFT_xExchMapiVirtualDirectory' end
   def dscmeta_module_name; 'xExchange' end
-  def dscmeta_module_version; '1.8.0.0' end
+  def dscmeta_module_version; '1.10.0.0' end
   def dscmeta_module_embedded; true end
 
   newparam(:name, :namevar => true ) do
