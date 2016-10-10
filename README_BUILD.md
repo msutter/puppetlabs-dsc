@@ -224,7 +224,11 @@ When importing or creating custom types, follow these steps:
 You can build your own dsc puppet modules (external module) based on your own powershell source code. External puppet modules will automatically require the dsc base module (puppetlabs-dsc) as they need the base type and the provider for DSC handling. All you have to do is to specify the target location of your module with the `--target_module_location` option.
 
 Here an example with a source git repository:
-`bundle exec rake dsc:build -- --source_repo_url=https://github/myname/MyDscPowershellModule.git --target_module_location=vendor/my_puppet_module`
+
+~~~
+bundle exec rake dsc:build -- --source_repo_url=https://github/myname/MyDscPowershellModule.git --target_module_location=vendor/my_puppet_module
+~~~
+
 
 ## Partial support for DSC composite resources.
 If you need a puppet type for a DSC composite resources, you have to define a xxx.schema.mof file next to your xxx.Schema.psm1 file.
