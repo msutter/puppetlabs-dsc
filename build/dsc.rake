@@ -76,6 +76,10 @@ DOCOPT
     parameters["unembed_powershell_sources"] = parameters["unembed_powershell_sources"].nil? ?
       default_repository['unembed_powershell_sources'] : parameters["unembed_powershell_sources"]
 
+    if (parameters["source_repo_url"] || parameters["source_location"]) && !parameters["base_only"]
+      RakeTaskArguments.execute_rake('dsc:resources:import', parameters)
+    end
+
     if parameters["target_module_location"]
       RakeTaskArguments.execute_rake('dsc:module:skeleton', parameters.filter(
         :target_module_location,
@@ -83,10 +87,6 @@ DOCOPT
       )
     else
       RakeTaskArguments.execute_rake('dsc:resources:base', {})
-    end
-
-    if (parameters["source_repo_url"] || parameters["source_location"]) && !parameters["base_only"]
-      RakeTaskArguments.execute_rake('dsc:resources:import', parameters)
     end
 
     RakeTaskArguments.execute_rake('dsc:resources:embed', parameters.filter(

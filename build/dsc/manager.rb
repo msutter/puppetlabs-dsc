@@ -234,10 +234,13 @@ module Dsc
         end
       end
 
-    # Generate metadata.json
+      # Generate metadata.json
+      last_tagged_version = get_tagged_versions(@dsc_modules_folder_tmp).map { | ver | Gem::Version.new(ver) }.max.to_s
+      raise "Module version is based on tag, but #{@dsc_modules_folder_tmp} has no version tags" if last_tagged_version.empty?
       puts "Creating #{@target_module_location}/metadata.json"
       root_dsc_metadata = JSON.parse(File.read('metadata.json'))
       module_metadata = root_dsc_metadata.dup
+      module_metadata["version"] = last_tagged_version
       module_metadata["name"] = module_name
       module_metadata["operatingsystem_support"] = root_dsc_metadata["operatingsystem_support"]
       module_metadata["requirements"] = root_dsc_metadata["requirements"]
@@ -289,6 +292,23 @@ module Dsc
         file.write rakefile_content.gsub(/\/spec\/fixtures\/modules\/dsc/, "/spec/fixtures/modules/#{module_name.split('-').last}")
       end
 
+    end
+
+    def get_tagged_versions(repo_path, release_tag_prefix=nil, release_tag_suffix=nil)
+      tags_raw = %x{ git -C #{repo_path} tag}
+      tags = tags_raw.scan(/^.*/)
+      versions = []
+      if !tags.empty?
+        if release_tag_prefix || release_tag_suffix
+          prefix_regex = release_tag_prefix ? Regexp.quote(release_tag_prefix) : ""
+          suffix_regex = release_tag_suffix ? Regexp.quote(release_tag_suffix) : ""
+          version_regex = Regexp.new "#{prefix_regex}(\\S+)#{suffix_regex}"
+          versions = tags_raw.scan(version_regex).map
+        else
+          versions = tags
+        end
+      end
+      versions
     end
 
     def ensure_versions(submodules, update_versions, release_tag_prefix, release_tag_suffix)
