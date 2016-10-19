@@ -235,23 +235,34 @@ module Dsc
       end
 
       # Generate metadata.json
-      last_tagged_version = get_tagged_versions(@dsc_modules_folder_tmp).map { | ver | Gem::Version.new(ver) }.max.to_s
-      raise "Module version is based on tag, but #{@dsc_modules_folder_tmp} has no version tags" if last_tagged_version.empty?
-      puts "Creating #{@target_module_location}/metadata.json"
-      root_dsc_metadata = JSON.parse(File.read('metadata.json'))
-      module_metadata = root_dsc_metadata.dup
-      module_metadata["version"] = last_tagged_version
-      module_metadata["name"] = module_name
-      module_metadata["operatingsystem_support"] = root_dsc_metadata["operatingsystem_support"]
-      module_metadata["requirements"] = root_dsc_metadata["requirements"]
-      module_metadata["dependencies"] = [
-        {
-          "name"=> root_dsc_metadata['name'].sub('-','/'),
-          "version_requirement" => root_dsc_metadata['version']
-        }
-      ]
-      File.open("#{@target_module_location}/metadata.json", 'w') do |file|
-        file.write JSON.pretty_generate(module_metadata)
+      version_file = "#{@dsc_modules_folder_tmp}/version"
+      main_version = nil
+      if File.exists?(version_file)
+        main_version = File.read(version_file).strip
+      else
+        main_version = get_tagged_versions(@dsc_modules_folder_tmp).map { | ver | Gem::Version.new(ver) }.max.to_s
+      end
+
+      unless main_version
+        puts "metadata.json file could not be processed !"
+        puts "Module version is based on tag or version file, but #{@dsc_modules_folder_tmp} has no version file or tags"
+      else
+        puts "Creating #{@target_module_location}/metadata.json"
+        root_dsc_metadata = JSON.parse(File.read('metadata.json'))
+        module_metadata = root_dsc_metadata.dup
+        module_metadata["version"] = main_version
+        module_metadata["name"] = module_name
+        module_metadata["operatingsystem_support"] = root_dsc_metadata["operatingsystem_support"]
+        module_metadata["requirements"] = root_dsc_metadata["requirements"]
+        module_metadata["dependencies"] = [
+          {
+            "name"=> root_dsc_metadata['name'].sub('-','/'),
+            "version_requirement" => root_dsc_metadata['version']
+          }
+        ]
+        File.open("#{@target_module_location}/metadata.json", 'w') do |file|
+          file.write JSON.pretty_generate(module_metadata)
+        end
       end
 
       # Generate .fixtures.yml with dependencies on base dsc module
